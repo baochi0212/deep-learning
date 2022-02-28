@@ -16,12 +16,13 @@ PATH = Path(os.path.dirname(__file__)).parent
 sys.path.append(os.path.join(PATH, 'preprocessing'))
 from funcs import Vocab
 from tqdm import tqdm
+print("GPU", torch.cuda.is_available())
 
 def train(input_variable, lengths, target_variable, mask, encoder, decoder,
           encoder_optimizer, decoder_optimizer, batch_size, clip, device='cpu'):
 
       #input and optimizer
-      if device == 'cuda':
+      if torch.cuda.is_available():
         input_variable, target_variable = input_variable.to(device), target_variable.to(device)
         encoder.cuda()
         decoder.cuda()
@@ -98,7 +99,7 @@ def trainiters(n_epochs, input_variable, lengths, target_variable, mask, encoder
 
 if __name__ == '__main__':
     vocab = Vocab()
-    data = pd.read_csv(os.path.join('/home/xps/educate/code/NLP/chat_bot/data/cornell movie-dialogs corpus/pair_df.csv'), sep='@')
+    data = pd.read_csv(os.path.join(PATH, 'data/cornell movie-dialogs corpus/pair_df.csv'), sep='@')
     data = data.iloc[:3000]
     print(data)
     for i in range(len(data)):
