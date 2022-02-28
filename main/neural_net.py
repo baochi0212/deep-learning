@@ -113,6 +113,7 @@ class LuongAttnDecoderRNN(nn.Module):
         embedded = self.embedding(input_step)
         embedded = self.embedding_dropout(embedded)
         # Forward through unidirectional GRU
+        embedded, last_hidden = embedded.contiguous(), last_hidden.contiguous()
         rnn_output, hidden = self.gru(embedded, last_hidden)
         # Calculate attention weights from the current GRU output
         attn_weights = self.attn(rnn_output, encoder_outputs)
@@ -142,7 +143,7 @@ if __name__ == "__main__":
     print('---SHAPE', dataset[0][0].shape)
     #loader 
     dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-    sample_input, sample_target, lengths = iter(dataloader).next()
+    sample_input, sample_target, lengths, mask = iter(dataloader).next()
     lengths, _ = lengths.sort(descending=True)
     print('---encoder input', sample_input.shape, sample_target.shape, lengths)
     #try the model 

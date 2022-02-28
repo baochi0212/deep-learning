@@ -40,7 +40,7 @@ def load_ckp(checkpoint, encoder, decoder, encoder_optimizer, decoder_optimizer)
 if __name__ == "__main__":
     #vocab:
     vocab = Vocab()
-    data = pd.read_csv(os.path.join('/home/xps/educate/code/NLP/chat_bot/data/cornell movie-dialogs corpus/pair_df.csv'), sep='@')
+    data = pd.read_csv(os.path.join(PATH, 'data/cornell movie-dialogs corpus/pair_df.csv'), sep='@')
     data = data.iloc[:3000]
     print(data)
     for i in range(len(data)):

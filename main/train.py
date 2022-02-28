@@ -23,10 +23,13 @@ def train(input_variable, lengths, target_variable, mask, encoder, decoder,
 
       #input and optimizer
       if torch.cuda.is_available():
-        input_variable, target_variable = input_variable.to(device), target_variable.to(device)
+        input_variable, target_variable = input_variable.cuda(), target_variable.cuda()
         encoder.cuda()
         decoder.cuda()
-      decoder_input = torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).reshape(1, -1)
+        mask = mask.cuda()
+        decoder_input = torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).reshape(1, -1).cuda()
+      else:
+        decoder_input = torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).reshape(1, -1)
       encoder_optimizer.zero_grad()
       decoder_optimizer.zero_grad() 
 
