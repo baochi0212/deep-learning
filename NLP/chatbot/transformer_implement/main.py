@@ -10,6 +10,7 @@ import random
 device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_size = 32
 def MaskedNLL(yhat, y, mask):
+<<<<<<< HEAD
     #if feed sequentially 
     # print(yhat.shape, y.shape)
     # print('BEFORE SOFTMAX', yhat)
@@ -24,6 +25,12 @@ def MaskedNLL(yhat, y, mask):
     CE = -torch.log(torch.gather(yhat, 2, y))
     # print('orginal', CE)
     # print('log', torch.log(CE))
+=======
+    # print(yhat.shape, y.shape)
+    #yhat and y for 1 timestep
+    #yhat batch  x vocab, y batch x 1 -> gather according to y[-1] and the dimension 1 (softmax dim) -> log
+    CE = -torch.log(torch.gather(yhat, 1, y))
+>>>>>>> 40e36ce7ac0b376b171fa5fe1255a0675edf0b11
     #get the mask of this time step
     CE = CE.masked_select(mask).mean(0)
     return CE, mask.sum() #for valid pos counts
@@ -32,13 +39,21 @@ def MaskedNLL(yhat, y, mask):
 
 
 
+<<<<<<< HEAD
 def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parralel'):
+=======
+def train(encoder, decoder, batch_data, encoder_optim, decoder_optim):
+>>>>>>> 40e36ce7ac0b376b171fa5fe1255a0675edf0b11
     encoder_optim.zero_grad()
     decoder_optim.zero_grad()
     encoder, decoder = encoder.to(device), decoder.to(device)
     input, target, enc_valid, mask = batch_data
+<<<<<<< HEAD
     input, target, mask = input.to(device), target[:, :-1].to(device), mask.to(device)
     enc_valid = enc_valid.to(device)
+=======
+    input, target, mask = input.to(device), target.to(device), mask.to(device)
+>>>>>>> 40e36ce7ac0b376b171fa5fe1255a0675edf0b11
     #encode the input
     enc_max_len = input.shape[1]
     # print('enc max', enc_max_len)
@@ -47,11 +62,16 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     #decoder
     num_steps = target.shape[1]
     state = decoder.init_state(encoder_outputs, enc_valid, enc_max_len)
+<<<<<<< HEAD
     
+=======
+    decoder_input = torch.tensor([[1] for i in range(batch_size)]) #SOS tag
+>>>>>>> 40e36ce7ac0b376b171fa5fe1255a0675edf0b11
     
     teacher_forcing = False if random.uniform(0, 1) > 0.5 else False
     total_loss = 0 
     valid_pos = 0
+<<<<<<< HEAD
     if mode == 'parralel':
         print(target.shape)
         decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
@@ -77,6 +97,20 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
             loss, valid = MaskedNLL(pred.squeeze(1), target[:, i].view(-1, 1), mask[:, i])
             total_loss += loss
             valid_pos += valid
+=======
+    for i in range(num_steps):
+        print('decoder input', decoder_input.shape)
+        pred, state = decoder(decoder_input, state)
+        print('pred', pred.shape)
+        pred = F.softmax(pred, dim=-1)
+        if teacher_forcing:
+            decoder_input = target[:, i].unsqueeze(-1) #next time step
+        else:
+            decoder_input = torch.argmax(pred, dim=-1)
+        loss, valid = MaskedNLL(pred.squeeze(1), target[:, i].view(-1, 1), mask[:, i])
+        total_loss += loss
+        valid_pos += valid
+>>>>>>> 40e36ce7ac0b376b171fa5fe1255a0675edf0b11
     total_loss.backward()
     encoder_optim.step()
     decoder_optim.step()
@@ -149,11 +183,18 @@ if __name__ == "__main__":
     print('input | target | valid len | masking for output')
     print(f'{sample[0].shape} | {sample[1].shape} | {sample[2].shape} |  {sample[3].shape}')
     #NLL loss
+<<<<<<< HEAD
     yhat = torch.rand([32, 11, 1000000])
     y = sample[1].unsqueeze(-1)
     mask = sample[3].unsqueeze(-1)
     
     print('mask', MaskedNLL(yhat, y, mask))
+=======
+    yhat = torch.rand([32, 1000000])
+    y = sample[1][:, 0].view(-1, 1)
+    mask = sample[3][:, 0].view(-1, 1)
+    # print('mask', MaskedNLL(yhat, y, mask))
+>>>>>>> 40e36ce7ac0b376b171fa5fe1255a0675edf0b11
     #define models
     learning_rate = 0.01
     decoder_learning_ratio = 5
