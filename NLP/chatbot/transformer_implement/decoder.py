@@ -23,14 +23,14 @@ class Decoder_block(nn.Module):
 
         else:
             state[3][self.i] = torch.cat([state[3][self.i], x], dim=1)
-        #key for autogessive fashion
+        #key for autoregressive fashion
         #add norm is similar to history attention method (combine the attentioned encoder with the output of decoder)
         k = state[3][self.i]
         max_len = k.shape[1]
         valid_lens = torch.tensor([max_len for i in range(k.shape[0])])
-        x = AddNorm(self.attention1(x, k, k, valid_lens, max_len), x)
+        x = AddNorm(self.attention1(x, k, k, mode='decoder'), x)
         x = self.ffn(x)
-        x = AddNorm(self.attention2(x, encoder_output, encoder_output, enc_valid, enc_max_len), x)
+        x = AddNorm(self.attention2(x, encoder_output, encoder_output), x)
         return x, state
 
 class Decoder(nn.Module):
@@ -74,4 +74,4 @@ if __name__ == "__main__":
     x = torch.tensor(np.random.randint(0, 100, (32, 1)), dtype=torch.long) #batch x n_step
     decoder = Decoder(VOCAB_SIZE, 128, in_dim=128, hidden_dim=256, out_dim=128)
     state = decoder.init_state(torch.rand(32, 12, 128), torch.tensor(np.random.randint(1, 12, (32))), 12)
-    print('decoder output', decoder(x, state)) #decoder input shape =1 -> for not teacher forcing 
+    print('decoder output', decoder(x, state)[0].shape) #decoder input shape =1 -> for not teacher forcing 

@@ -1,6 +1,11 @@
 import torch
 
-y = torch.rand(2,4)
-print(y)
-idx = torch.tensor([1,2], dtype=torch.long).view(-1, 1)
-print(torch.gather(y, 1, idx))
+x = torch.rand([2,5])
+x[0, 0] = -1
+y = torch.zeros_like(x) + torch.tensor([-100])
+a = torch.where(x > 0, x, y)
+print(a)
+
+x = torch.tensor([1, 2, 3])
+x = x.repeat(4, 2)
+print(x.shape)

@@ -43,36 +43,55 @@ def masked_value(value, mask):
     return masked_pos
 
 #attention score
-def attention_score(q, k, v, valid_lens, max_len, type='dot'):
-    #mask batch x q_num_step
-    #q, k, v : batch x num_step x qkv features
-    #q@k: batch x num_step x num_step
-    if type == 'dot':
-        # mask_value = torch.tensor([[1 if i < valid_lens[j] else 0 for i in range(max_len)] for j in range(valid_lens.shape[0])])
-        # mask_bool = torch.tensor([[True if i < valid_lens[j] else False for i in range(max_len)] for j in range(valid_lens.shape[0])])
-        # print('mask', mask_bool.shape)
-        dot_product_batch = torch.bmm(q, k.permute(0, 2, 1))/q.shape[-1]**0.5
-        # print('dot batch', dot_product_batch.shape)
-        for i in range(dot_product_batch.shape[0]): #get the batch value 
-            #get the dot product of each batch #shape q_step x k_step
-            valid_len = valid_lens[i]
-            dot_product = dot_product_batch[i]
-            # print('dot product', dot_product.shape)
-            #mask for this batch, take into account if index < valid_len
-            mask_bool = torch.tensor([[True if j < valid_len else False for j in range(dot_product.shape[1])] for k in range(dot_product.shape[0])]).to(device)
-            mask_value = torch.tensor([[1 if j < valid_len else 0 for j in range(dot_product.shape[1])] for k in range(dot_product.shape[0])]).to(device)
-            # print('mask', mask_bool.shape)
-            dot_product = dot_product.masked_select(mask_bool)
-            masked_product = masked_value(list(dot_product), mask_value)
-            # print('masked product', masked_product)
-            softmax = F.softmax(masked_product, dim=-1).unsqueeze(0)
-            # print('softmax', softmax)
-            if i == 0:
-                out_softmax = softmax 
-            else:
-                out_softmax = torch.concat([out_softmax, softmax], dim=0)
-        
-        return torch.bmm(out_softmax, v)
+def attention_score(q, k, v, type='dot', mode='encoder'):
+    # #mask batch x q_num_step
+    # #q, k, v : batch x num_step x qkv features
+    # #q@k: batch x num_step x num_step
+    # if type == 'dot':
+    #     # mask_value = torch.tensor([[1 if i < valid_lens[j] else 0 for i in range(max_len)] for j in range(valid_lens.shape[0])])
+    #     # mask_bool = torch.tensor([[True if i < valid_lens[j] else False for i in range(max_len)] for j in range(valid_lens.shape[0])])
+    #     # print('mask', mask_bool.shape)
+    #     dot_product_batch = torch.bmm(q, k.permute(0, 2, 1))/q.shape[-1]**0.5
+    #     # print('dot batch', dot_product_batch.shape)
+    #     for i in range(dot_product_batch.shape[0]): #get the batch value 
+    #         #get the dot product of each batch #shape q_step x k_step
+    #         valid_len = valid_lens[i]
+    #         dot_product = dot_product_batch[i]
+    #         # print('dot product', dot_product.shape)
+    #         #mask for this batch, take into account if index < valid_len
+    #         mask_bool = torch.tensor([[True if j < valid_len else False for j in range(dot_product.shape[1])] for k in range(dot_product.shape[0])]).to(device)
+    #         mask_value = torch.tensor([[1 if j < valid_len else 0 for j in range(dot_product.shape[1])] for k in range(dot_product.shape[0])]).to(device)
+    #         # print('mask', mask_bool.shape)
+    #         dot_product = dot_product.masked_select(mask_bool)
+    #         masked_product = masked_value(list(dot_product), mask_value)
+    #         # print('masked product', masked_product)
+    #         softmax = F.softmax(masked_product, dim=-1).unsqueeze(0)
+    #         # print('softmax', softmax)
+    #         if i == 0:
+    #             out_softmax = softmax 
+    #         else:
+    #             out_softmax = torch.concat([out_softmax, softmax], dim=0)
+    if type  == 'dot':
+        #q (m x f) @ k(n x f) -> weight (m x n) <attention of query m to key n -> need to mask the padded in n> @ v (n x f) -> queried value : m x f
+        #mask 1 1 1 0 
+        if mode == 'encoder':
+            min = -1000
+            dot_product = torch.bmm(q, k.permute(0, 2, 1))/(q.shape[-1]**0.5)
+            mask = torch.zeros_like(dot_product).to(device) + torch.tensor([-min]).to(device)
+            dot_product = torch.where(dot_product > 0, dot_product, mask).to(device)
+        else:
+            #decoder valid lens: torch.arange(1, num_steps(keys)) -> because the query can only attend the seen keys
+            dot_product = torch.bmm(q, k.permute(0, 2, 1))/(q.shape[-1]**0.5) # m x n shape -> need n x n mask
+            num_steps = k.shape[1] #key num step
+            mask = torch.tensor([[1 if pos < idx + 1 else -1000 for pos in range(num_steps)] for idx in range(num_steps)]).unsqueeze(0) #batch x n x n mask (transpose for bmm) 
+            mask = mask.repeat(dot_product.shape[0], 1, 1).float()
+            dot_product = torch.bmm(dot_product, mask)
+        out_softmax = torch.softmax(dot_product, dim=-1)
+    if type == 'none':
+        batch_dot = torch.bmm(q, k.permute(0, 2, 1))
+        out_softmax = F.softmax(batch_dot, dim=-1)
+                
+    return torch.bmm(out_softmax, v)
     
 
 
@@ -93,7 +112,7 @@ class Multi_head_attention(nn.Module):
         self.hidden_v = nn.Linear(in_dim//num_heads, hidden_dim//num_heads)
         self.out = nn.Linear(hidden_dim, out_dim)
     
-    def forward(self, q, k, v, valid_lens, max_len):
+    def forward(self, q, k, v, mode='encoder'):
         weighted_values = [] #weighted attenton
         #split and project to the hidden dim, calculate the attention and concat the attention_weighted values
         split = q.shape[-1]//self.num_heads
@@ -101,7 +120,7 @@ class Multi_head_attention(nn.Module):
             q_i = self.hidden_q(q[:, :, i*split:(i+1)*split])
             k_i = self.hidden_k(k[:, :, i*split:(i+1)*split])
             v_i = self.hidden_v(v[:, :, i*split:(i+1)*split])
-            weighted_values.append(attention_score(q_i, k_i, v_i, valid_lens, max_len))
+            weighted_values.append(attention_score(q_i, k_i, v_i, mode=mode))
         return self.out(torch.cat(weighted_values, dim=-1))
 
 
@@ -144,9 +163,9 @@ if __name__ == "__main__":
     v = torch.rand([32, 12, 128])
     valid_lens = torch.tensor(np.random.randint(1, 9, 32)) #batch 
     print('batch valid lens', valid_lens.shape)
-    print('Attention score', attention_score(q, k, v, valid_lens, max_len=12).shape)
+    print('Attention score', attention_score(q, k, v, mode='decoder').shape)
     
     # #multi head
-    # attention = Multi_head_attention(128, 256, 128)
-    # print('multi head', attention(q, k, v, valid_lens, max_len=12).shape) #batch x nstep x feature 
-    # print('layernorm', AddNorm(q, q).shape)
+    attention = Multi_head_attention(128, 256, 128)
+    print('multi head', attention(q, k, v).shape) #batch x nstep x feature 
+    print('layernorm', AddNorm(q, q).shape)

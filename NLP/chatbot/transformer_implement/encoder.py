@@ -1,5 +1,6 @@
 from neural_net import *
 import numpy as np
+import torch.nn as nn
 
 
 VOCAB_SIZE = 10000
@@ -12,12 +13,12 @@ class Encoder_block(nn.Module):
         self.ffn = FeedForward(in_dim, 2*in_dim, in_dim)
         self.attention2 = Multi_head_attention(in_dim, hidden_dim, out_dim, num_heads)
 
-    def forward(self, x, valid_lens, max_len):
+    def forward(self, x ):
         
         #main
-        x = AddNorm(self.attention1(x, x, x, valid_lens, max_len), x)
+        x = AddNorm(self.attention1(x, x, x ), x)
         x = self.ffn(x)
-        x = AddNorm(self.attention2(x, x, x, valid_lens, max_len), x)
+        x = AddNorm(self.attention2(x, x, x ), x)
         return x 
 
 class Encoder(nn.Module):
@@ -30,12 +31,12 @@ class Encoder(nn.Module):
         self.num_blocks = num_blocks
         self.block = Encoder_block(**kwargs)
 
-    def forward(self, x, valid_lens, max_len):
+    def forward(self, x ):
         #embedding
         x = self.embedding(x)
         x = x + self.pe(x)
         for i in range(self.num_blocks):
-            x = self.block(x, valid_lens, max_len)
+            x = self.block(x )
         return x 
 
     @property
@@ -51,6 +52,10 @@ if __name__ == "__main__":
     max_len = input.shape[1]
     block = Encoder_block(128, 256, 128)
     block_input = torch.rand(32, 12, 128)
-    print('encoder block', block(block_input, valid_lens, max_len).shape)
+    # print('encoder block', block(block_input ).shape)
     encoder = Encoder(VOCAB_SIZE, embed_dim=128, in_dim=128, hidden_dim=256, out_dim=128)
-    print('encoder output', encoder(input, valid_lens, max_len).shape)
+    encoder2 = nn.Transformer(d_model=128, batch_first=True)
+    print('encoder output', encoder(input).shape)
+    # print('encoder output', encoder2(block_input, block_input).shape)
+    # print('MODEL 1', encoder)
+    # print('MODEL 2', encoder2)
