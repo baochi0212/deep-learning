@@ -13,7 +13,7 @@ class Decoder_block(nn.Module):
         self.ffn = FeedForward(in_dim, in_dim*2, in_dim)
         self.attention2 = Multi_head_attention(in_dim, hidden_dim, out_dim, num_heads)
 
-    def forward(self, x, state):
+    def forward(self, x, state, mode):
         #we use the last state to concat the current input
         #encoder output and valid lens
         encoder_output, enc_valid, enc_max_len = state[0], state[1], state[2]
@@ -28,7 +28,7 @@ class Decoder_block(nn.Module):
         k = state[3][self.i]
         max_len = k.shape[1]
         valid_lens = torch.tensor([max_len for i in range(k.shape[0])])
-        x = AddNorm(self.attention1(x, k, k, mode='decoder'), x)
+        x = AddNorm(self.attention1(x, k, k, mode=mode), x)
         x = self.ffn(x)
         x = AddNorm(self.attention2(x, encoder_output, encoder_output), x)
         return x, state
@@ -46,11 +46,11 @@ class Decoder(nn.Module):
     def init_state(self, encoder_outputs, enc_valid, enc_max):
         return [encoder_outputs, enc_valid, enc_max, dict((i + 1, None) for i in range(self.num_blocks))]
 
-    def forward(self, x, state):
+    def forward(self, x, state, mode):
         x = self.embedding(x)
         x = x + self.pe(x)
         for i in range(self.num_blocks):
-            x, state = self.blocks[i](x, state)
+            x, state = self.blocks[i](x, state, mode=mode)
 
             
         return self.out(x), state
@@ -69,9 +69,9 @@ if __name__ == "__main__":
     state.append(torch.tensor(np.random.randint(1, 12, (32))))
     state.append(12)
     state.append({1: None})
-    print('decoder block', block(input, state)[0].shape)
+    print('decoder block', block(input, state, mode='decoder')[0].shape)
     # #decoder
     x = torch.tensor(np.random.randint(0, 100, (32, 1)), dtype=torch.long) #batch x n_step
     decoder = Decoder(VOCAB_SIZE, 128, in_dim=128, hidden_dim=256, out_dim=128)
     state = decoder.init_state(torch.rand(32, 12, 128), torch.tensor(np.random.randint(1, 12, (32))), 12)
-    print('decoder output', decoder(x, state)[0].shape) #decoder input shape =1 -> for not teacher forcing 
+    print('decoder output', decoder(x, state, mode='decoder')[0].shape) #decoder input shape =1 -> for not teacher forcing 

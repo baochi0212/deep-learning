@@ -71,7 +71,7 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
         print(target.shape)
         decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
         decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
-        pred, _ = decoder(decoder_input, state)
+        pred, _ = decoder(decoder_input, state, mode='decoder')
         print('shape', pred.shape, decoder_target.shape)
         loss, valid = MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode=mode)
         total_loss = loss
@@ -82,7 +82,7 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
         target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=-1)
         for i in range(num_steps):
             # print('decoder input', decoder_input.shape)
-            pred, state = decoder(decoder_input, state)
+            pred, state = decoder(decoder_input, state, mode='none')
             # print('pred', pred.shape)
             pred = F.softmax(pred, dim=-1)
             if teacher_forcing:

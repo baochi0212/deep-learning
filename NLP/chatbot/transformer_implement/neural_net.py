@@ -84,7 +84,7 @@ def attention_score(q, k, v, type='dot', mode='encoder'):
             dot_product = torch.bmm(q, k.permute(0, 2, 1))/(q.shape[-1]**0.5) # m x n shape -> need n x n mask
             num_steps = k.shape[1] #key num step
             mask = torch.tensor([[1 if pos < idx + 1 else -1000 for pos in range(num_steps)] for idx in range(num_steps)]).unsqueeze(0) #batch x n x n mask (transpose for bmm) 
-            mask = mask.repeat(dot_product.shape[0], 1, 1).float()
+            mask = mask.repeat(dot_product.shape[0], 1, 1).float().to(device)
             dot_product = torch.bmm(dot_product, mask)
         out_softmax = torch.softmax(dot_product, dim=-1)
     if type == 'none':
