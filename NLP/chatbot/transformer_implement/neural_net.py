@@ -79,6 +79,8 @@ def attention_score(q, k, v, type='dot', mode='encoder'):
             dot_product = torch.bmm(q, k.permute(0, 2, 1))/(q.shape[-1]**0.5)
             mask = torch.zeros_like(dot_product).to(device) + torch.tensor([-min]).to(device)
             dot_product = torch.where(dot_product > 0, dot_product, mask).to(device)
+        elif mode == 'none':
+            dot_product = torch.bmm(q, k.permute(0, 2, 1))/(q.shape[-1]**0.5)
         else:
             #decoder valid lens: torch.arange(1, num_steps(keys)) -> because the query can only attend the seen keys
             dot_product = torch.bmm(q, k.permute(0, 2, 1))/(q.shape[-1]**0.5) # m x n shape -> need n x n mask
@@ -87,9 +89,6 @@ def attention_score(q, k, v, type='dot', mode='encoder'):
             mask = mask.repeat(dot_product.shape[0], 1, 1).float().to(device)
             dot_product = torch.bmm(dot_product, mask)
         out_softmax = torch.softmax(dot_product, dim=-1)
-    if type == 'none':
-        batch_dot = torch.bmm(q, k.permute(0, 2, 1))
-        out_softmax = F.softmax(batch_dot, dim=-1)
                 
     return torch.bmm(out_softmax, v)
     
@@ -115,13 +114,17 @@ class Multi_head_attention(nn.Module):
     def forward(self, q, k, v, mode='encoder'):
         weighted_values = [] #weighted attenton
         #split and project to the hidden dim, calculate the attention and concat the attention_weighted values
-        split = q.shape[-1]//self.num_heads
-        for i in range(self.num_heads):
-            q_i = self.hidden_q(q[:, :, i*split:(i+1)*split])
-            k_i = self.hidden_k(k[:, :, i*split:(i+1)*split])
-            v_i = self.hidden_v(v[:, :, i*split:(i+1)*split])
-            weighted_values.append(attention_score(q_i, k_i, v_i, mode=mode))
-        return self.out(torch.cat(weighted_values, dim=-1))
+        # split = q.shape[-1]//self.num_heads
+        # for i in range(self.num_heads):
+        #     q_i = self.hidden_q(q[:, :, i*split:(i+1)*split])
+        #     k_i = self.hidden_k(k[:, :, i*split:(i+1)*split])
+        #     v_i = self.hidden_v(v[:, :, i*split:(i+1)*split])
+        #     weighted_values.append(attention_score(q_i, k_i, v_i, mode=mode))
+        q_i = self.hidden_q(q.view(q.shape[0], q.shape[1], self.num_heads, q.shape[-1]//self.num_heads)).view(q.shape[0], q.shape[1], -1)
+        k_i = self.hidden_k(k.view(k.shape[0], k.shape[1], self.num_heads, k.shape[-1]//self.num_heads)).view(k.shape[0], k.shape[1], -1)
+        v_i = self.hidden_v(v.view(v.shape[0], v.shape[1], self.num_heads, v.shape[-1]//self.num_heads)).view(v.shape[0], v.shape[1], -1)
+        weighted_values  = attention_score(q_i, k_i, v_i, mode=mode)
+        return self.out(weighted_values)
 
 
 

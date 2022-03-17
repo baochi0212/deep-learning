@@ -230,7 +230,8 @@ if __name__ == "__main__":
     decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=256, out_dim=128)
     encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
-    print(train(encoder, decoder, sample, encoder_optimizer, decoder_optimizer, mode='sequence'))
+    while True:
+        print(train(encoder, decoder, sample, encoder_optimizer, decoder_optimizer, mode='sequence'))
     #trial model in fingertips
     # net = Net(vocab_size=vocab.num_words)
     # net_optim = torch.optim.Adam(net.parameters(), lr=learning_rate)
