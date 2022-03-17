@@ -6,6 +6,8 @@ import torch.nn.functional as F
 import pandas as pd
 from torch.utils.data import DataLoader, Dataset
 import random
+from example_model import *
+import time
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_size = 32
@@ -100,28 +102,29 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
 def train2(net, batch_data, net_optim, mode='parralel'):
     net_optim.zero_grad()
     input, target, enc_valid, mask = batch_data
-    input, target, mask = input.to(device), target.to(device), mask.to(device)
-    enc_valid = enc_valid.to(device)
-    #encode the input
-    enc_max_len = input.shape[1]
-    # print('enc max', enc_max_len)
-    # print('enc valid', enc_valid)
-    encoder_outputs = encoder(input, enc_valid, enc_max_len)
+    input, target, mask = input.to(device), target[:, :-1].to(device), mask.to(device)
+    # enc_valid = enc_valid.to(device)
+    # #encode the input
+    # enc_max_len = input.shape[1]
+    # # print('enc max', enc_max_len)
+    # # print('enc valid', enc_valid)
+    # encoder_outputs = encoder(input, enc_valid, enc_max_len)
     #decoder
     num_steps = target.shape[1]
-    state = decoder.init_state(encoder_outputs, enc_valid, enc_max_len)
+    # state = decoder.init_state(encoder_outputs, enc_valid, enc_max_len)
     
     
     teacher_forcing = False if random.uniform(0, 1) > 0.5 else False
     total_loss = 0 
     valid_pos = 0
     if mode == 'parralel':
-        print(target.shape)
-        # decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
-        # decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
-        pred = net(input, target)
+        # print(target.shape)
+        decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
+        decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
+        input_mask, decoder_input_mask, _ = create_masks(input, decoder_input, decoder_target)
+        pred = net(input, input_mask, decoder_input, decoder_input_mask)
         # print('shape', pred.shape, decoder_target.shape)
-        loss, valid = MaskedNLL(pred, target.unsqueeze(-1), mask.unsqueeze(-1))
+        loss, valid = MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode='parralel')
         total_loss = loss
         valid_pos = valid
 
@@ -159,9 +162,6 @@ class Translate_dataset(Dataset):
         tensor_input = torch.tensor([self.vocab.word2idx[word] for word in input.split()] + [self.vocab.word2idx['EOS']], dtype=torch.long)
         tensor_target = torch.tensor([self.vocab.word2idx[word] for word in target.split()] + [self.vocab.word2idx['EOS']], dtype=torch.long)
 
-        #tensor for model train2:
-        tensor_input = torch.tensor([self.vocab.word2idx[word] for word in input.split()], dtype=torch.long)
-        tensor_target = torch.tensor([self.vocab.word2idx[word] for word in target.split()], dtype=torch.long)
         #get the valid_len:
         valid_len = tensor_input.shape[0] #the valid len for attention weights 
         #padding
@@ -230,9 +230,13 @@ if __name__ == "__main__":
     decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=256, out_dim=128)
     encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
-    while True:
-        print(train(encoder, decoder, sample, encoder_optimizer, decoder_optimizer, mode='sequence'))
+    start = time.time()
+    print('my model', train(encoder, decoder, sample, encoder_optimizer, decoder_optimizer, mode='sequence'), time.time() - start)
     #trial model in fingertips
     # net = Net(vocab_size=vocab.num_words)
     # net_optim = torch.optim.Adam(net.parameters(), lr=learning_rate)
-    # print(train2(net, sample, net_optim))
+    
+    model = Transformer(128, 8, 4, vocab)
+    model_optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    start = time.time()
+    print('model', train2(model, sample, model_optim), time.time() - start)
