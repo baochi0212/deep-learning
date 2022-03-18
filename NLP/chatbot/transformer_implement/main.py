@@ -39,7 +39,7 @@ def MaskedNLL(yhat, y, mask, mode):
         CE = -torch.log(torch.gather(yhat, 2, y))
     else:
         CE = -torch.log(torch.gather(yhat, 1, y))
-    print('orginal', CE.shape)
+    # print('orginal', CE.shape)
     # print('log', torch.log(CE))
     #get the mask of this time step
     CE = CE.masked_select(mask).mean()

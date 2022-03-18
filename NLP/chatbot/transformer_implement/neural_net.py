@@ -34,7 +34,7 @@ def create_mask(input, target_input):
     input_mask = input.unsqueeze(1).unsqueeze(1)
     #the decoder input mask:
     target_mask = target_input!=0
-    print('TARGET MASK', target_mask.shape)
+    # print('TARGET MASK', target_mask.shape)
     autoregressive_mask = torch.triu(torch.ones(target_input.shape[-1], target_input.shape[-1])).transpose(1, 0).type_as(target_mask) #max x max
     target_mask = target_mask.unsqueeze(1) & autoregressive_mask.unsqueeze(0) #batch x max x max 
     target_mask = target_mask.unsqueeze(1) 
@@ -130,8 +130,8 @@ class Multi_head_attention(nn.Module):
         k_i = self.hidden_k(k.view(k.shape[0], self.num_heads,  k.shape[1], k.shape[-1]//self.num_heads))
         v_i = self.hidden_v(v.view(v.shape[0], self.num_heads, v.shape[1], v.shape[-1]//self.num_heads))
 
-        print("QKV", q_i.shape, k_i.shape, v_i.shape)
-        print('mask', mask.shape)
+        # print("QKV", q_i.shape, k_i.shape, v_i.shape)
+        # print('mask', mask.shape)
         dot_product = torch.matmul(q_i, k_i.transpose(2, 3))/q_i.shape[-1]**0.5 # b x h x m x n
         dot_product = dot_product.masked_fill(mask!=0, -10000) #mask shape 1 x 1 x 1 x n
         weighted_values = torch.matmul(F.softmax(dot_product, -1), v_i) #b x h x m x f 
