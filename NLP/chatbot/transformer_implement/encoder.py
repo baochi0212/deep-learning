@@ -13,12 +13,12 @@ class Encoder_block(nn.Module):
         self.ffn = FeedForward(in_dim, 2*in_dim, in_dim)
         self.attention2 = Multi_head_attention(in_dim, hidden_dim, out_dim, num_heads)
 
-    def forward(self, x ):
+    def forward(self, x, mask):
         
         #main
-        x = AddNorm(self.attention1(x, x, x ), x)
+        x = AddNorm(self.attention1(x, x, x, mask), x)
         x = self.ffn(x)
-        x = AddNorm(self.attention2(x, x, x ), x)
+        x = AddNorm(self.attention2(x, x, x, mask), x)
         return x 
 
 class Encoder(nn.Module):
@@ -31,12 +31,12 @@ class Encoder(nn.Module):
         self.num_blocks = num_blocks
         self.block = Encoder_block(**kwargs)
 
-    def forward(self, x ):
+    def forward(self, x, mask):
         #embedding
         x = self.embedding(x)
         x = x + self.pe(x)
         for i in range(self.num_blocks):
-            x = self.block(x )
+            x = self.block(x, mask)
         return x 
 
     @property
@@ -53,9 +53,10 @@ if __name__ == "__main__":
     block = Encoder_block(128, 256, 128)
     block_input = torch.rand(32, 12, 128)
     # print('encoder block', block(block_input ).shape)
+    mask = torch.rand(32, 1, 1, 11)
     encoder = Encoder(VOCAB_SIZE, embed_dim=128, in_dim=128, hidden_dim=256, out_dim=128)
     encoder2 = nn.Transformer(d_model=128, batch_first=True)
-    print('encoder output', encoder(input).shape)
+    print('encoder output', encoder(input, mask).shape)
     # print('encoder output', encoder2(block_input, block_input).shape)
     # print('MODEL 1', encoder)
     # print('MODEL 2', encoder2)

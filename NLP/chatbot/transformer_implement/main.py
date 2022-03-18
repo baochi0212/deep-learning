@@ -39,10 +39,10 @@ def MaskedNLL(yhat, y, mask, mode):
         CE = -torch.log(torch.gather(yhat, 2, y))
     else:
         CE = -torch.log(torch.gather(yhat, 1, y))
-    # print('orginal', CE)
+    print('orginal', CE.shape)
     # print('log', torch.log(CE))
     #get the mask of this time step
-    CE = CE.masked_select(mask).mean(0)
+    CE = CE.masked_select(mask).mean()
     return CE, mask.sum() #for valid pos counts
 
     
@@ -60,20 +60,23 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     enc_max_len = input.shape[1]
     # print('enc max', enc_max_len)
     # print('enc valid', enc_valid)
-    encoder_outputs = encoder(input)
+    
     #decoder
     num_steps = target.shape[1]
+    
+    #get the mask
+    decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
+    decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
+    src_mask, trg_mask = create_mask(input, decoder_input)
+    #init state
+    encoder_outputs = encoder(input, src_mask)
     state = decoder.init_state(encoder_outputs, enc_valid, enc_max_len)
-    
-    
     teacher_forcing = False if random.uniform(0, 1) > 0.5 else False
     total_loss = 0 
     valid_pos = 0
     if mode == 'parralel':
         print(target.shape)
-        decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
-        decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
-        pred, _ = decoder(decoder_input, state, mode='decoder')
+        pred, _ = decoder(decoder_input, state, src_mask, trg_mask)
         print('shape', pred.shape, decoder_target.shape)
         loss, valid = MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode=mode)
         total_loss = loss
@@ -121,7 +124,10 @@ def train2(net, batch_data, net_optim, mode='parralel'):
         # print(target.shape)
         decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
         decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
-        input_mask, decoder_input_mask, _ = create_masks(input, decoder_input, decoder_target)
+        input_mask, decoder_input_mask, decoder_target_mask = create_masks(input, decoder_input, decoder_target)
+        # print('INPUT MASK', input_mask)
+        # print('DECODER INPUT', decoder_input_mask)
+        # print('DECODER OUTPUT', decoder_target_mask)
         pred = net(input, input_mask, decoder_input, decoder_input_mask)
         # print('shape', pred.shape, decoder_target.shape)
         loss, valid = MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode='parralel')
@@ -231,7 +237,7 @@ if __name__ == "__main__":
     encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
     start = time.time()
-    print('my model', train(encoder, decoder, sample, encoder_optimizer, decoder_optimizer, mode='sequence'), time.time() - start)
+    print('my model', train(encoder, decoder, sample, encoder_optimizer, decoder_optimizer, mode='parralel'), time.time() - start)
     #trial model in fingertips
     # net = Net(vocab_size=vocab.num_words)
     # net_optim = torch.optim.Adam(net.parameters(), lr=learning_rate)

@@ -1,11 +1,13 @@
 import torch
 
-x = torch.rand([2,5])
-x[0, 0] = -1
-y = torch.zeros_like(x) + torch.tensor([-100])
-a = torch.where(x > 0, x, y)
-print(a)
 
-x = torch.tensor([1, 2, 3])
-x = x.repeat(4, 2)
-print(x.shape)
+x = torch.rand(1,  3, 11, 11)
+mask = torch.rand(1, 1, 1, 11)
+x = x.masked_fill(mask!=0, -1000)
+print(mask)
+print(x)
+x = torch.rand(32, 11, 1)
+mask = torch.rand(32, 11, 1)
+
+
+print(x & y)
