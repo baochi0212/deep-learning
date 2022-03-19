@@ -25,25 +25,29 @@ class Net(nn.Module):
         return self.out(out)
 def MaskedNLL(yhat, y, mask, mode):
     #if feed sequentially 
-    # print(yhat.shape, y.shape)
+    print(yhat.shape, y.shape)
     # print('BEFORE SOFTMAX', yhat)
-    yhat = F.softmax(yhat, dim=-1)
-    #yhat and y for 1 timestep
-    #yhat batch  x vocab, y batch x 1 -> gather according to y[-1] and the dimension 1 (softmax dim) -> log
-    #feed in parallel: yhat batch x seq_len x vocab vs y batch x seq_len x 1
-    # for i in range(yhat.shape[1]):
-    # print('PRED', yhat)
-    # print('---------------------------------')
-    # print('TRUTH', y)
-    if mode == 'parralel':
-        CE = -torch.log(torch.gather(yhat, 2, y))
-    else:
-        CE = -torch.log(torch.gather(yhat, 1, y))
-    # print('orginal', CE.shape)
-    # print('log', torch.log(CE))
-    #get the mask of this time step
-    CE = CE.masked_select(mask).mean()
-    return CE, mask.sum() #for valid pos counts
+    #mask cross entropy
+    mask_target = y!=0
+    loss =  (nn.CrossEntropyLoss(reduction='none')(yhat.permute(0, 2, 1), y.squeeze(-1)) * mask_target.squeeze(-1)).mean(dim=[0, 1])
+    # print('LOSS', loss)
+    # yhat = F.softmax(yhat, dim=-1)
+    # #yhat and y for 1 timestep
+    # #yhat batch  x vocab, y batch x 1 -> gather according to y[-1] and the dimension 1 (softmax dim) -> log
+    # #feed in parallel: yhat batch x seq_len x vocab vs y batch x seq_len x 1
+    # # for i in range(yhat.shape[1]):
+    # # print('PRED', yhat)
+    # # print('---------------------------------')
+    # # print('TRUTH', y)
+    # if mode == 'parralel':
+    #     CE = -torch.log(torch.gather(yhat, 2, y))
+    # else:
+    #     CE = -torch.log(torch.gather(yhat, 1, y))
+    # # print('orginal', CE.shape)
+    # # print('log', torch.log(CE))
+    # #get the mask of this time step
+    # CE = CE.masked_select(mask).mean()
+    return loss #for valid pos counts
 
     
 
@@ -75,12 +79,11 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     total_loss = 0 
     valid_pos = 0
     if mode == 'parralel':
-        print(target.shape)
+        # print(target.shape)
         pred, _ = decoder(decoder_input, state, src_mask, trg_mask)
-        print('shape', pred.shape, decoder_target.shape)
-        loss, valid = MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode=mode)
+        # print('shape', pred.shape, decoder_target.shape)
+        loss= MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode=mode)
         total_loss = loss
-        valid_pos = valid
 
     else:
         decoder_input = torch.tensor([[1] for i in range(batch_size)]).to(device) #SOS tag
@@ -100,7 +103,7 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     total_loss.backward()
     encoder_optim.step()
     decoder_optim.step()
-    return total_loss/valid_pos
+    return total_loss
 
 def train2(net, batch_data, net_optim, mode='parralel'):
     net_optim.zero_grad()
@@ -130,9 +133,8 @@ def train2(net, batch_data, net_optim, mode='parralel'):
         # print('DECODER OUTPUT', decoder_target_mask)
         pred = net(input, input_mask, decoder_input, decoder_input_mask)
         # print('shape', pred.shape, decoder_target.shape)
-        loss, valid = MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode='parralel')
+        loss = MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode='parralel')
         total_loss = loss
-        valid_pos = valid
 
     else:
         decoder_input = torch.tensor([[1] for i in range(batch_size)]).to(device) #SOS tag
@@ -151,7 +153,7 @@ def train2(net, batch_data, net_optim, mode='parralel'):
             valid_pos += valid
     total_loss.backward()
     net_optim.step()
-    return total_loss/valid_pos
+    return total_loss
 
 
 
