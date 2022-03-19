@@ -3,6 +3,7 @@ import torch.nn as nn
 import numpy as np 
 from neural_net import * 
 VOCAB_SIZE = 10000
+device = "cuda" if torch.cuda.is_available() else "cpu"
 class Decoder_block(nn.Module):
     def __init__(self, i, in_dim, hidden_dim, out_dim, num_heads=8):
         super().__init__()
@@ -28,12 +29,12 @@ class Decoder_block(nn.Module):
         k = x
         max_len = k.shape[1]
         valid_lens = torch.tensor([max_len for i in range(k.shape[0])])
-        if self.training:
-            x = AddNorm(self.attention1(x, k, k, trg_mask), x)
-        else:
-            size = x.shape[1]
-            mask = torch.ones(size, size).unsqueeze(0).unsqueeze(0)
-            x = AddNorm(self.attention1(x, k, k, mask), x)
+        # if self.training:
+        x = AddNorm(self.attention1(x, k, k, trg_mask), x)
+        # else:
+        #     size = x.shape[1]
+        #     mask = torch.ones(size, size).unsqueeze(0).unsqueeze(0).to(device)
+        #     x = AddNorm(self.attention1(x, k, k, mask), x)
         x = self.ffn(x)
         x = AddNorm(self.attention2(x, encoder_output, encoder_output, src_mask), x)
         return x, state

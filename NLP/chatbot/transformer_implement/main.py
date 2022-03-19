@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 import random
 from example_model import *
 import time
+from copy import deepcopy
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_size = 32
@@ -57,8 +58,8 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     encoder_optim.zero_grad()
     decoder_optim.zero_grad()
     encoder, decoder = encoder.to(device), decoder.to(device)
-    input, target, enc_valid, mask = batch_data
-    input, target, mask = input.to(device), target[:, :-1].to(device), mask.to(device)
+    input, decoder_target, enc_valid, mask, decoder_input = batch_data
+    input, decoder_target, mask, decoder_input = input.to(device), decoder_target.to(device), mask.to(device), decoder_input.to(device) 
     enc_valid = enc_valid.to(device)
     #encode the input
     enc_max_len = input.shape[1]
@@ -66,11 +67,11 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     # print('enc valid', enc_valid)
     
     #decoder
-    num_steps = target.shape[1]
+    num_steps = decoder_target.shape[1]
     
     #get the mask
-    decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
-    decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
+    # decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
+    # decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
     src_mask, trg_mask = create_mask(input, decoder_input)
     #init state
     encoder_outputs = encoder(input, src_mask)
@@ -169,18 +170,19 @@ class Translate_dataset(Dataset):
         input, target = self.data.iloc[idx, :]
         #get the tensor word:
         tensor_input = torch.tensor([self.vocab.word2idx[word] for word in input.split()] + [self.vocab.word2idx['EOS']], dtype=torch.long)
-        tensor_target = torch.tensor([self.vocab.word2idx[word] for word in target.split()] + [self.vocab.word2idx['EOS']], dtype=torch.long)
-
+        decoder_target = torch.tensor([self.vocab.word2idx[word] for word in target.split()] + [self.vocab.word2idx['EOS']], dtype=torch.long)
+        decoder_input = torch.tensor([self.vocab.word2idx['SOS']] + [self.vocab.word2idx[word] for word in target.split()], dtype=torch.long)
         #get the valid_len:
         valid_len = tensor_input.shape[0] #the valid len for attention weights 
         #padding
         if len(input.split()) < self.MAX_LEN + 1:
             tensor_input = torch.cat([tensor_input, torch.zeros(self.MAX_LEN - len(input.split()), dtype=torch.long)])
         if len(target.split()) < self.MAX_LEN + 1:
-            tensor_target = torch.cat([tensor_target, torch.zeros(self.MAX_LEN - len(target.split()), dtype=torch.long)])
-            mask = torch.tensor([True if i.item() != 0 else False for i in tensor_target])
+            decoder_target = torch.cat([decoder_target, torch.zeros(self.MAX_LEN - len(target.split()), dtype=torch.long)])
+            mask = torch.tensor([True if i.item() != 0 else False for i in decoder_target])
+            decoder_input =  torch.cat([decoder_input, torch.zeros(self.MAX_LEN - len(target.split()), dtype=torch.long)])
 
-        return tensor_input, tensor_target, valid_len, mask
+        return tensor_input, decoder_target, valid_len, mask, decoder_input
 
     def __len__(self):
         return len(self.data)
@@ -233,10 +235,10 @@ if __name__ == "__main__":
     
     # print('mask', MaskedNLL(yhat, y, mask, mode='none'))
     #define models
-    learning_rate = 0.01
+    learning_rate = 0.0001
     decoder_learning_ratio = 5
-    encoder = Encoder(vocab.num_words, embed_dim=128, in_dim=128, hidden_dim=256, out_dim=128)
-    decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=256, out_dim=128)
+    encoder = Encoder(vocab.num_words, embed_dim=128, in_dim=128, hidden_dim=128, out_dim=128)
+    decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=128, out_dim=128)
     encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
     start = time.time()
@@ -248,4 +250,4 @@ if __name__ == "__main__":
     model = Transformer(128, 8, 4, vocab)
     model_optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
     start = time.time()
-    print('model', train2(model, sample, model_optim), time.time() - start)
+    # print('model', train2(model, sample, model_optim), time.time() - start)

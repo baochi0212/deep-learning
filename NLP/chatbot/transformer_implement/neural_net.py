@@ -134,7 +134,7 @@ class Multi_head_attention(nn.Module):
         # print('mask', mask.shape)
         dot_product = torch.matmul(q_i, k_i.transpose(2, 3))/q_i.shape[-1]**0.5 # b x h x m x n
         dot_product = dot_product.masked_fill(mask!=0, -10000) #mask shape 1 x 1 x 1 x n
-        print('DOT AND MASK', dot_product.shape, mask.shape)
+        # print('DOT AND MASK', dot_product.shape, mask.shape)
         weighted_values = torch.matmul(F.softmax(dot_product, -1), v_i) #b x h x m x f 
         weighted_values = weighted_values.reshape(weighted_values.shape[0], weighted_values.shape[2], self.num_heads*weighted_values.shape[-1])  #b x m x f 
         return self.out(weighted_values)
