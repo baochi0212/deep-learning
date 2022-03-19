@@ -25,7 +25,7 @@ class Net(nn.Module):
         return self.out(out)
 def MaskedNLL(yhat, y, mask, mode):
     #if feed sequentially 
-    print(yhat.shape, y.shape)
+    # print(yhat.shape, y.shape)
     # print('BEFORE SOFTMAX', yhat)
     #mask cross entropy
     mask_target = y!=0
@@ -107,6 +107,7 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
 
 def train2(net, batch_data, net_optim, mode='parralel'):
     net_optim.zero_grad()
+    net = net.to(device)
     input, target, enc_valid, mask = batch_data
     input, target, mask = input.to(device), target[:, :-1].to(device), mask.to(device)
     # enc_valid = enc_valid.to(device)
