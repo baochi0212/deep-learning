@@ -31,7 +31,7 @@ class Positional_Encoding(nn.Module):
 def create_mask(input, target_input):
     #the encoder mask:
     input_mask = input!=0 #b x max
-    input_mask = input.unsqueeze(1).unsqueeze(1)
+    input_mask = input_mask.unsqueeze(1).unsqueeze(1)
     #the decoder input mask:
     target_mask = target_input!=0
     # print('TARGET MASK', target_mask.shape)
@@ -133,7 +133,8 @@ class Multi_head_attention(nn.Module):
         # print("QKV", q_i.shape, k_i.shape, v_i.shape)
         # print('mask', mask.shape)
         dot_product = torch.matmul(q_i, k_i.transpose(2, 3))/q_i.shape[-1]**0.5 # b x h x m x n
-        dot_product = dot_product.masked_fill(mask!=0, -10000) #mask shape 1 x 1 x 1 x n
+        if mask is not None: 
+          dot_product = dot_product.masked_fill(mask!=0, -10000) #mask shape 1 x 1 x 1 x n
         # print('DOT AND MASK', dot_product.shape, mask.shape)
         weighted_values = torch.matmul(F.softmax(dot_product, -1), v_i) #b x h x m x f 
         weighted_values = weighted_values.reshape(weighted_values.shape[0], weighted_values.shape[2], self.num_heads*weighted_values.shape[-1])  #b x m x f 

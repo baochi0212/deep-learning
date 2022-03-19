@@ -26,15 +26,15 @@ class Decoder_block(nn.Module):
             state[3][self.i] = torch.cat([state[3][self.i], x], dim=1)
         #key for autoregressive fashion
         #add norm is similar to history attention method (combine the attentioned encoder with the output of decoder)
-        k = x
+        k = state[3][self.i]
         max_len = k.shape[1]
         valid_lens = torch.tensor([max_len for i in range(k.shape[0])])
-        # if self.training:
-        x = AddNorm(self.attention1(x, k, k, trg_mask), x)
-        # else:
-        #     size = x.shape[1]
-        #     mask = torch.ones(size, size).unsqueeze(0).unsqueeze(0).to(device)
-        #     x = AddNorm(self.attention1(x, k, k, mask), x)
+        if self.training:
+            x = AddNorm(self.attention1(x, k, k, trg_mask), x)
+        else:
+            # size = x.shape[1]
+            # mask = torch.ones(size, size).unsqueeze(0).unsqueeze(0).to(device)
+            x = AddNorm(self.attention1(x, k, k, None), x)
         x = self.ffn(x)
         x = AddNorm(self.attention2(x, encoder_output, encoder_output, src_mask), x)
         return x, state
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     state.append({1: None})
     # print('decoder block', block(input, state, mode='decoder')[0].shape)
     # #decoder
-    x = torch.tensor(np.random.randint(0, 100, (1,2)), dtype=torch.long) #batch x n_step
+    x = torch.tensor(np.random.randint(0, 100, (1,4)), dtype=torch.long) #batch x n_step
     decoder = Decoder(VOCAB_SIZE, 128, in_dim=128, hidden_dim=256, out_dim=128)
     state = decoder.init_state(torch.rand(1, 11, 128), torch.tensor(np.random.randint(1, 11, (32))), 12)
     src_mask, trg_mask = create_mask(input, x)

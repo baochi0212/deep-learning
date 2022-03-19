@@ -76,7 +76,7 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     #init state
     encoder_outputs = encoder(input, src_mask)
     state = decoder.init_state(encoder_outputs, enc_valid, enc_max_len)
-    teacher_forcing = False if random.uniform(0, 1) > 0.5 else False
+    teacher_forcing = True if random.uniform(0, 1) > 0.5 else False
     total_loss = 0 
     valid_pos = 0
     if mode == 'parralel':
@@ -88,19 +88,18 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
 
     else:
         decoder_input = torch.tensor([[1] for i in range(batch_size)]).to(device) #SOS tag
-        target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=-1)
         for i in range(num_steps):
+            src_mask, trg_mask = create_mask(input, decoder_input)
             # print('decoder input', decoder_input.shape)
-            pred, state = decoder(decoder_input, state, mode='none')
+            pred, state = decoder(decoder_input, state, src_mask, trg_mask)
             # print('pred', pred.shape)
             pred = F.softmax(pred, dim=-1)
             if teacher_forcing:
-                decoder_input = target[:, i].unsqueeze(-1) #next time step
+                decoder_input = decoder_target[:, i].unsqueeze(-1) #next time step
             else:
                 decoder_input = torch.argmax(pred, dim=-1)
-            loss, valid = MaskedNLL(pred.squeeze(1), target[:, i].view(-1, 1), mask[:, i], mode=mode)
+            loss= MaskedNLL(pred, decoder_target[:, i].unsqueeze(-1).unsqueeze(-1), mask[:, i].unsqueeze(-1).unsqueeze(-1), mode=mode)
             total_loss += loss
-            valid_pos += valid
     total_loss.backward()
     encoder_optim.step()
     decoder_optim.step()
@@ -251,3 +250,42 @@ if __name__ == "__main__":
     model_optim = torch.optim.Adam(model.parameters(), lr=learning_rate)
     start = time.time()
     # print('model', train2(model, sample, model_optim), time.time() - start)
+
+    # encoder.eval()
+    # decoder.eval()
+    
+    # #guess
+    # input = 'happy birthday'
+    # max_len = 11 
+    # input_tensor = torch.tensor([vocab.word2idx[i] for i in input.split()] + [2], dtype=torch.long)
+    # input_tensor = torch.cat([input_tensor, torch.zeros(max_len - input_tensor.shape[0], dtype=torch.long)]).view(1, -1)
+    # decoder_input = torch.tensor([[1]], dtype=torch.long)
+    # src_mask = input_tensor!=0
+    # encoder_outputs = encoder(input_tensor, src_mask)
+    # #decoder input
+
+    # state = decoder.init_state(encoder_outputs, None, max_len)
+
+    # answer = []
+    # for i in range(max_len):
+    #     print("DECODER", decoder_input)
+    #     print('ENCODER', encoder_outputs.shape)
+    #     size = decoder_input.shape[1]
+    #     # trg_mask = torch.triu(torch.ones(size, size)).transpose(0, 1).unsqueeze(0).unsqueeze(0)
+    #     # trg_mask  = torch.ones(1, 1).unsqueeze(0).unsqueeze(0)
+    #     # _, trg_mask = create_mask(input_tensor, decoder_input)
+
+    #     pred, state = decoder(decoder_input, state, src_mask, None)
+    #     # print('PRED', pred.shape)
+        
+    #     pred = torch.argmax(nn.functional.softmax(pred[:, -1], dim=-1))
+    #     # print("PRED", pred)
+    #     # print('WORDS', vocab.num_words)
+    #     answer.append(pred.detach().cpu().item())
+        
+    #     decoder_input =  pred.reshape(1, 1)
+
+
+    # print(answer)
+
+
