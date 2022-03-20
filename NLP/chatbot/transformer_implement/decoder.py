@@ -14,7 +14,7 @@ class Decoder_block(nn.Module):
         self.ffn = FeedForward(in_dim, in_dim*2, in_dim)
         self.attention2 = Multi_head_attention(in_dim, hidden_dim, out_dim, num_heads)
 
-    def forward(self, x, state, src_mask, trg_mask=None):
+    def forward(self, x, state, src_mask, trg_mask=None, attention=True):
         
         #we use the last state to concat the current input
         #encoder output and valid lens
@@ -31,7 +31,7 @@ class Decoder_block(nn.Module):
         max_len = k.shape[1]
         valid_lens = torch.tensor([max_len for i in range(k.shape[0])])
         if self.training:
-            x = AddNorm(self.attention1(x, k, k, trg_mask), x)
+            x = AddNorm(self.attention1(x, k, k, trg_mask, attention), x)
         else:
             # print('KEY', k.shape)
             # print('QUERY', x.shape)
@@ -39,7 +39,7 @@ class Decoder_block(nn.Module):
             # size = x.shape[1]
             # mask = torch.ones(size, size).unsqueeze(0).unsqueeze(0).to(device)
             x = AddNorm(self.attention1(x, k, k, None), x)
-        x = AddNorm(self.attention2(x, encoder_output, encoder_output, src_mask), x)
+        x = AddNorm(self.attention2(x, encoder_output, encoder_output, src_mask, attention), x)
         x = AddNorm(self.ffn(x), x)
         return x, state
 
@@ -56,15 +56,16 @@ class Decoder(nn.Module):
     def init_state(self, encoder_outputs, enc_valid, enc_max):
         return [encoder_outputs, enc_valid, enc_max, dict((i + 1, None) for i in range(self.num_blocks))]
 
-    def forward(self, x, state, src_mask, trg_mask):
+    def forward(self, x, state, src_mask, trg_mask, attention=True):
+        if self.training:
+            attention = False 
         # print('TARGET MASK', trg_mask)
         # print('INPUT MASK', src_mask)
         # print('DECODER', x)
         x = self.embedding(x)
         x = x + self.pe(x)
         for i in range(self.num_blocks):
-            x, state = self.blocks[i](x, state, src_mask, trg_mask)
-            break
+            x, state = self.blocks[i](x, state, src_mask, trg_mask, attention=attention)
 
             
         return self.out(x), state
@@ -74,6 +75,8 @@ class Decoder(nn.Module):
 
 
 if __name__ == "__main__":
+    #show weight
+    attention = True
     #decode each timestep in sequence: 
     block = Decoder_block(1, 128, 256, 128)
     input = torch.tensor(np.random.randint(0, 4, (1, 11)), dtype=torch.long) #batch x n_step
@@ -86,8 +89,8 @@ if __name__ == "__main__":
     # print('decoder block', block(input, state, mode='decoder')[0].shape)
     # #decoder
     x = torch.tensor(np.random.randint(0, 4, (1,4)), dtype=torch.long) #batch x n_step
-    decoder = Decoder(VOCAB_SIZE, 128, in_dim=128, hidden_dim=256, out_dim=128)
+    decoder = Decoder(VOCAB_SIZE, 128, in_dim=128, hidden_dim=256, out_dim=128).train()
     state = decoder.init_state(torch.rand(1, 11, 128), torch.tensor(np.random.randint(1, 11, (32))), 12)
     src_mask, trg_mask = create_mask(input, x)
-    print('decoder output', decoder(x, state, src_mask, trg_mask)[0].shape) #decoder input shape =1 -> for not teacher forcing 
+    print('decoder output', decoder(x, state, src_mask, trg_mask, attention)[0].shape) #decoder input shape =1 -> for not teacher forcing 
     #seq len: decoder_input: 1, encoder_input: 11

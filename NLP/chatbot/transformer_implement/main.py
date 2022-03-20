@@ -9,7 +9,7 @@ import random
 from example_model import *
 import time
 from copy import deepcopy
-
+attention =  False
 device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_size = 32
 class Net(nn.Module):
@@ -81,7 +81,7 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     valid_pos = 0
     if mode == 'parralel':
         # print(target.shape)
-        pred, _ = decoder(decoder_input, state, src_mask, trg_mask)
+        pred, _ = decoder(decoder_input, state, src_mask, trg_mask, attention=attention)
         # print('shape', pred.shape, decoder_target.shape)
         loss= MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode=mode)
         total_loss = loss
@@ -236,8 +236,8 @@ if __name__ == "__main__":
     #define models
     learning_rate = 0.0001
     decoder_learning_ratio = 5
-    encoder = Encoder(vocab.num_words, embed_dim=128, in_dim=128, hidden_dim=128, out_dim=128)
-    decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=128, out_dim=128)
+    encoder = Encoder(vocab.num_words, embed_dim=128, in_dim=128, hidden_dim=128, out_dim=128).train()
+    decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=128, out_dim=128).train()
     encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
     start = time.time()
@@ -251,41 +251,41 @@ if __name__ == "__main__":
     start = time.time()
     # print('model', train2(model, sample, model_optim), time.time() - start)
 
-    encoder.eval()
-    decoder.eval()
+    # encoder.eval()
+    # decoder.eval()
     
-    #guess
-    input = 'happy birthday'
-    max_len = 11 
-    input_tensor = torch.tensor([vocab.word2idx[i] for i in input.split()] + [2], dtype=torch.long)
-    input_tensor = torch.cat([input_tensor, torch.zeros(max_len - input_tensor.shape[0], dtype=torch.long)]).view(1, -1)
-    decoder_input = torch.tensor([[1]], dtype=torch.long)
-    src_mask = input_tensor!=0
-    encoder_outputs = encoder(input_tensor, src_mask)
-    #decoder input
+    # #guess
+    # input = 'happy birthday'
+    # max_len = 11 
+    # input_tensor = torch.tensor([vocab.word2idx[i] for i in input.split()] + [2], dtype=torch.long)
+    # input_tensor = torch.cat([input_tensor, torch.zeros(max_len - input_tensor.shape[0], dtype=torch.long)]).view(1, -1)
+    # decoder_input = torch.tensor([[1]], dtype=torch.long)
+    # src_mask = input_tensor!=0
+    # encoder_outputs = encoder(input_tensor, src_mask)
+    # #decoder input
 
-    state = decoder.init_state(encoder_outputs, None, max_len)
+    # state = decoder.init_state(encoder_outputs, None, max_len)
 
-    answer = []
-    for i in range(max_len):
-        print("DECODER", decoder_input)
-        print('ENCODER', encoder_outputs.shape)
-        size = decoder_input.shape[1]
-        # trg_mask = torch.triu(torch.ones(size, size)).transpose(0, 1).unsqueeze(0).unsqueeze(0)
-        # trg_mask  = torch.ones(1, 1).unsqueeze(0).unsqueeze(0)
-        # _, trg_mask = create_mask(input_tensor, decoder_input)
+    # answer = []
+    # for i in range(max_len):
+    #     print("DECODER", decoder_input)
+    #     print('ENCODER', encoder_outputs.shape)
+    #     size = decoder_input.shape[1]
+    #     # trg_mask = torch.triu(torch.ones(size, size)).transpose(0, 1).unsqueeze(0).unsqueeze(0)
+    #     # trg_mask  = torch.ones(1, 1).unsqueeze(0).unsqueeze(0)
+    #     # _, trg_mask = create_mask(input_tensor, decoder_input)
 
-        pred, state = decoder(decoder_input, state, src_mask, None)
-        # print('PRED', pred.shape)
+    #     pred, state = decoder(decoder_input, state, src_mask, None)
+    #     # print('PRED', pred.shape)
         
-        pred = torch.argmax(nn.functional.softmax(pred, dim=-1))
-        # print("PRED", pred)
-        # print('WORDS', vocab.num_words)
-        answer.append(pred.detach().cpu().item())
-        
-        decoder_input =  pred.reshape(1, 1)
+    #     pred = torch.argmax(nn.functional.softmax(pred, dim=-1))
+    #     # print("PRED", pred)
+    #     # print('WORDS', vocab.num_words)
+    #     answer.append(pred.detach().cpu().item())
+
+    #     decoder_input =  pred.reshape(1, 1)
 
 
-    print(answer)
+    # print(answer)
 
 
