@@ -8,7 +8,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 #positional encoding
 class Positional_Encoding(nn.Module):
 
-    def __init__(self, d_model, max_len=5000):
+    def __init__(self, d_model, max_len=50):
         super().__init__()
 
         # Create matrix of [SeqLen, HiddenDim] representing the positional encoding for max_len inputs
@@ -87,7 +87,6 @@ def attention_score(q, k, v, type='dot', mode='encoder'):
             num_steps = k.shape[1] #key num step
             mask = torch.tensor([[True if pos < idx + 1 else False for pos in range(num_steps)] for idx in range(q.shape[1])]).repeat(dot_product.shape[0], 1, 1).float().to(device)
 
-            # print('mask', mask)
             
             dot_product = dot_product.masked_fill(mask==0, -10000)
             # print('dot product', dot_product)
@@ -117,7 +116,7 @@ class Multi_head_attention(nn.Module):
         self.hidden_v = nn.Linear(in_dim//num_heads, hidden_dim//num_heads)
         self.out = nn.Linear(hidden_dim, out_dim)
     
-    def forward(self, q, k, v, mask):
+    def forward(self, q, k, v, mask, attention=False):
         weighted_values = [] #weighted attenton
         #split and project to the hidden dim, calculate the attention and concat the attention_weighted values
         # split = q.shape[-1]//self.num_heads
@@ -134,8 +133,10 @@ class Multi_head_attention(nn.Module):
         # print('mask', mask.shape)
         dot_product = torch.matmul(q_i, k_i.transpose(2, 3))/q_i.shape[-1]**0.5 # b x h x m x n
         if mask is not None: 
-          dot_product = dot_product.masked_fill(mask!=0, -10000) #mask shape 1 x 1 x 1 x n
+          dot_product = dot_product.masked_fill(mask==0, -10000) #mask shape 1 x 1 x 1 x n
         # print('DOT AND MASK', dot_product.shape, mask.shape)
+        if attention:
+            print('ATTENTION WEIGHT', dot_product)
         weighted_values = torch.matmul(F.softmax(dot_product, -1), v_i) #b x h x m x f 
         weighted_values = weighted_values.reshape(weighted_values.shape[0], weighted_values.shape[2], self.num_heads*weighted_values.shape[-1])  #b x m x f 
         return self.out(weighted_values)
@@ -184,5 +185,5 @@ if __name__ == "__main__":
     mask = torch.rand([32, 1, 1, 12])
     # #multi head
     attention = Multi_head_attention(128, 256, 128)
-    print('multi head', attention(q, k, v, mask).shape) #batch x nstep x feature 
+    print('multi head', attention(q, k, v, mask, True).shape) #batch x nstep x feature 
     # print('layernorm', AddNorm(q, q).shape)

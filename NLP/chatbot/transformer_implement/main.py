@@ -251,41 +251,41 @@ if __name__ == "__main__":
     start = time.time()
     # print('model', train2(model, sample, model_optim), time.time() - start)
 
-    # encoder.eval()
-    # decoder.eval()
+    encoder.eval()
+    decoder.eval()
     
-    # #guess
-    # input = 'happy birthday'
-    # max_len = 11 
-    # input_tensor = torch.tensor([vocab.word2idx[i] for i in input.split()] + [2], dtype=torch.long)
-    # input_tensor = torch.cat([input_tensor, torch.zeros(max_len - input_tensor.shape[0], dtype=torch.long)]).view(1, -1)
-    # decoder_input = torch.tensor([[1]], dtype=torch.long)
-    # src_mask = input_tensor!=0
-    # encoder_outputs = encoder(input_tensor, src_mask)
-    # #decoder input
+    #guess
+    input = 'happy birthday'
+    max_len = 11 
+    input_tensor = torch.tensor([vocab.word2idx[i] for i in input.split()] + [2], dtype=torch.long)
+    input_tensor = torch.cat([input_tensor, torch.zeros(max_len - input_tensor.shape[0], dtype=torch.long)]).view(1, -1)
+    decoder_input = torch.tensor([[1]], dtype=torch.long)
+    src_mask = input_tensor!=0
+    encoder_outputs = encoder(input_tensor, src_mask)
+    #decoder input
 
-    # state = decoder.init_state(encoder_outputs, None, max_len)
+    state = decoder.init_state(encoder_outputs, None, max_len)
 
-    # answer = []
-    # for i in range(max_len):
-    #     print("DECODER", decoder_input)
-    #     print('ENCODER', encoder_outputs.shape)
-    #     size = decoder_input.shape[1]
-    #     # trg_mask = torch.triu(torch.ones(size, size)).transpose(0, 1).unsqueeze(0).unsqueeze(0)
-    #     # trg_mask  = torch.ones(1, 1).unsqueeze(0).unsqueeze(0)
-    #     # _, trg_mask = create_mask(input_tensor, decoder_input)
+    answer = []
+    for i in range(max_len):
+        print("DECODER", decoder_input)
+        print('ENCODER', encoder_outputs.shape)
+        size = decoder_input.shape[1]
+        # trg_mask = torch.triu(torch.ones(size, size)).transpose(0, 1).unsqueeze(0).unsqueeze(0)
+        # trg_mask  = torch.ones(1, 1).unsqueeze(0).unsqueeze(0)
+        # _, trg_mask = create_mask(input_tensor, decoder_input)
 
-    #     pred, state = decoder(decoder_input, state, src_mask, None)
-    #     # print('PRED', pred.shape)
+        pred, state = decoder(decoder_input, state, src_mask, None)
+        # print('PRED', pred.shape)
         
-    #     pred = torch.argmax(nn.functional.softmax(pred[:, -1], dim=-1))
-    #     # print("PRED", pred)
-    #     # print('WORDS', vocab.num_words)
-    #     answer.append(pred.detach().cpu().item())
+        pred = torch.argmax(nn.functional.softmax(pred, dim=-1))
+        # print("PRED", pred)
+        # print('WORDS', vocab.num_words)
+        answer.append(pred.detach().cpu().item())
         
-    #     decoder_input =  pred.reshape(1, 1)
+        decoder_input =  pred.reshape(1, 1)
 
 
-    # print(answer)
+    print(answer)
 
 
