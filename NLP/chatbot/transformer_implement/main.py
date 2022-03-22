@@ -9,7 +9,7 @@ import random
 from example_model import *
 import time
 from copy import deepcopy
-attention =  False
+attention =  True
 device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_size = 32
 class Net(nn.Module):
@@ -30,24 +30,23 @@ def MaskedNLL(yhat, y, mask, mode):
     # print('BEFORE SOFTMAX', yhat)
     #mask cross entropy
     mask_target = y!=0
-    loss =  (nn.CrossEntropyLoss(reduction='none')(yhat.permute(0, 2, 1), y.squeeze(-1)) * mask_target.squeeze(-1)).mean(dim=[0, 1])
+    # loss =  (nn.CrossEntropyLoss(reduction='none')(yhat.permute(0, 2, 1), y.squeeze(-1)) * mask_target.squeeze(-1)).mean(dim=[0, 1])
     # print('LOSS', loss)
-    # yhat = F.softmax(yhat, dim=-1)
+    yhat = F.softmax(yhat, dim=-1)
     # #yhat and y for 1 timestep
     # #yhat batch  x vocab, y batch x 1 -> gather according to y[-1] and the dimension 1 (softmax dim) -> log
     # #feed in parallel: yhat batch x seq_len x vocab vs y batch x seq_len x 1
-    # # for i in range(yhat.shape[1]):
-    # # print('PRED', yhat)
-    # # print('---------------------------------')
-    # # print('TRUTH', y)
+    # # for i in range(yhat.shape[1])
     # if mode == 'parralel':
-    #     CE = -torch.log(torch.gather(yhat, 2, y))
+    CE = -torch.log(torch.gather(yhat, 2, y))
     # else:
     #     CE = -torch.log(torch.gather(yhat, 1, y))
     # # print('orginal', CE.shape)
     # # print('log', torch.log(CE))
     # #get the mask of this time step
-    # CE = CE.masked_select(mask).mean()
+    CE = CE.masked_select(mask).mean()
+    
+    loss = CE
     return loss #for valid pos counts
 
     
@@ -71,7 +70,7 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     
     #get the mask
     # decoder_input = torch.cat([torch.tensor([[1] for i in range(batch_size)], dtype=torch.long).to(device), target], dim=1)
-    # decoder_target = torch.cat([target, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
+    # decoder_target = torch.cat([t arget, torch.tensor([[2] for i in range(batch_size)], dtype=torch.long).to(device)], dim=1)
     src_mask, trg_mask = create_mask(input, decoder_input)
     #init state
     encoder_outputs = encoder(input, src_mask)
@@ -80,10 +79,10 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
     total_loss = 0 
     valid_pos = 0
     if mode == 'parralel':
-        # print(target.shape)
+        # print('input', decoder_input[0], src_mask[0].shape, trg_mask.shape, decoder_target[0])
         pred, _ = decoder(decoder_input, state, src_mask, trg_mask, attention=attention)
         # print('shape', pred.shape, decoder_target.shape)
-        loss= MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode=mode)
+        loss = MaskedNLL(pred, decoder_target.unsqueeze(-1), mask.unsqueeze(-1), mode=mode)
         total_loss = loss
 
     else:
@@ -98,7 +97,7 @@ def train(encoder, decoder, batch_data, encoder_optim, decoder_optim, mode='parr
                 decoder_input = decoder_target[:, i].unsqueeze(-1) #next time step
             else:
                 decoder_input = torch.argmax(pred, dim=-1)
-            loss= MaskedNLL(pred, decoder_target[:, i].unsqueeze(-1).unsqueeze(-1), mask[:, i].unsqueeze(-1).unsqueeze(-1), mode=mode)
+            loss = MaskedNLL(pred, decoder_target[:, i].unsqueeze(-1).unsqueeze(-1), mask[:, i].unsqueeze(-1).unsqueeze(-1), mode=mode)
             total_loss += loss
     total_loss.backward()
     encoder_optim.step()
@@ -236,8 +235,8 @@ if __name__ == "__main__":
     #define models
     learning_rate = 0.0001
     decoder_learning_ratio = 5
-    encoder = Encoder(vocab.num_words, embed_dim=128, in_dim=128, hidden_dim=128, out_dim=128).train()
-    decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=128, out_dim=128).train()
+    encoder = Encoder(vocab.num_words, embed_dim=128, in_dim=128, hidden_dim=128, out_dim=128).eval()
+    decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=128, out_dim=128).eval()
     encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
     start = time.time()

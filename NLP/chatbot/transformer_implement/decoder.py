@@ -13,7 +13,7 @@ class Decoder_block(nn.Module):
         self.attention1 = Multi_head_attention(in_dim, hidden_dim, out_dim, num_heads)
         self.ffn = FeedForward(in_dim, in_dim*2, in_dim)
         self.attention2 = Multi_head_attention(in_dim, hidden_dim, out_dim, num_heads)
-
+        self.AddNorm = AddNorm(in_dim)
     def forward(self, x, state, src_mask, trg_mask=None, attention=True):
         
         #we use the last state to concat the current input
@@ -31,21 +31,22 @@ class Decoder_block(nn.Module):
         max_len = k.shape[1]
         valid_lens = torch.tensor([max_len for i in range(k.shape[0])])
         if self.training:
-            x = AddNorm(self.attention1(x, k, k, trg_mask, attention), x)
+            x = self.AddNorm(self.attention1(x, k, k, trg_mask, attention), x)
         else:
             # print('KEY', k.shape)
             # print('QUERY', x.shape)
 
             # size = x.shape[1]
             # mask = torch.ones(size, size).unsqueeze(0).unsqueeze(0).to(device)
-            x = AddNorm(self.attention1(x, k, k, None), x)
-        x = AddNorm(self.attention2(x, encoder_output, encoder_output, src_mask, attention), x)
-        x = AddNorm(self.ffn(x), x)
+            x = self.AddNorm(self.attention1(x, k, k, None), x)
+        x = self.AddNorm(self.attention2(x, encoder_output, encoder_output, src_mask, attention), x)
+        x = self.AddNorm(self.ffn(x), x)
         return x, state
 
 class Decoder(nn.Module):
     def __init__(self, vocab_size, embed_dim, num_blocks=4, **kwargs):
         super().__init__()
+        self.d_model = embed_dim
         self.embedding = nn.Embedding(vocab_size, embed_dim)
         self.pe = Positional_Encoding(embed_dim)
         
@@ -58,11 +59,8 @@ class Decoder(nn.Module):
 
     def forward(self, x, state, src_mask, trg_mask, attention=True):
         if self.training:
-            attention = False 
-        # print('TARGET MASK', trg_mask)
-        # print('INPUT MASK', src_mask)
-        # print('DECODER', x)
-        x = self.embedding(x)
+            attention = False
+        x = self.embedding(x)*(self.d_model**0.5)
         x = x + self.pe(x)
         for i in range(self.num_blocks):
             x, state = self.blocks[i](x, state, src_mask, trg_mask, attention=attention)
@@ -89,7 +87,7 @@ if __name__ == "__main__":
     # print('decoder block', block(input, state, mode='decoder')[0].shape)
     # #decoder
     x = torch.tensor(np.random.randint(0, 4, (1,4)), dtype=torch.long) #batch x n_step
-    decoder = Decoder(VOCAB_SIZE, 128, in_dim=128, hidden_dim=256, out_dim=128).train()
+    decoder = Decoder(VOCAB_SIZE, 128, in_dim=128, hidden_dim=256, out_dim=128)
     state = decoder.init_state(torch.rand(1, 11, 128), torch.tensor(np.random.randint(1, 11, (32))), 12)
     src_mask, trg_mask = create_mask(input, x)
     print('decoder output', decoder(x, state, src_mask, trg_mask, attention)[0].shape) #decoder input shape =1 -> for not teacher forcing 

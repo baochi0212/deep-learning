@@ -11,12 +11,12 @@ class Encoder_block(nn.Module):
         #main
         self.attention1 = Multi_head_attention(in_dim, hidden_dim, out_dim, num_heads)
         self.ffn = FeedForward(in_dim, 2*in_dim, in_dim)
-
+        self.AddNorm = AddNorm(in_dim)
     def forward(self, x, mask):
         
         #main
-        x = AddNorm(self.attention1(x, x, x, mask), x)
-        x = AddNorm(self.ffn(x), x)
+        x = self.AddNorm(self.attention1(x, x, x, mask), x)
+        x = self.AddNorm(self.ffn(x), x)
         return x 
 
 class Encoder(nn.Module):
@@ -25,13 +25,13 @@ class Encoder(nn.Module):
         #positional encoding + embedding
         self.embedding = nn.Embedding(vocab_size, embed_dim)
         self.pe = Positional_Encoding(embed_dim)
-        
+        self.d_model = embed_dim
         self.num_blocks = num_blocks
         self.block = Encoder_block(**kwargs)
 
     def forward(self, x, mask):
         #embedding
-        x = self.embedding(x)
+        x = self.embedding(x)*(self.d_model**0.5)
         x = x + self.pe(x)
         for i in range(self.num_blocks):
             x = self.block(x, mask)

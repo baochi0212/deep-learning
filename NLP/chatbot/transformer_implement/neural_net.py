@@ -36,9 +36,9 @@ def create_mask(input, target_input):
     target_mask = target_input!=0
     # print('TARGET MASK', target_mask.shape)
     autoregressive_mask = torch.triu(torch.ones(target_input.shape[-1], target_input.shape[-1])).transpose(1, 0).type_as(target_mask) #max x max
-    target_mask = target_mask.unsqueeze(1) & autoregressive_mask.unsqueeze(0) #batch x max x max 
-    target_mask = target_mask.unsqueeze(1) 
-    return input_mask, target_mask
+    # target_mask = target_mask.unsqueeze(1) & autoregressive_mask.unsqueeze(0) #batch x max x max 
+    # target_mask = target_mask.unsqueeze(1) 
+    return input_mask, autoregressive_mask
 #attention score
 def attention_score(q, k, v, type='dot', mode='encoder'):
     # #mask batch x q_num_step
@@ -135,9 +135,10 @@ class Multi_head_attention(nn.Module):
         if mask is not None: 
           dot_product = dot_product.masked_fill(mask==0, -10000) #mask shape 1 x 1 x 1 x n
         # print('DOT AND MASK', dot_product.shape, mask.shape)
+        dot_product = F.softmax(dot_product, -1)
         if attention:
             print('ATTENTION WEIGHT', dot_product)
-        weighted_values = torch.matmul(F.softmax(dot_product, -1), v_i) #b x h x m x f 
+        weighted_values = torch.matmul(dot_product, v_i) #b x h x m x f 
         weighted_values = weighted_values.reshape(weighted_values.shape[0], weighted_values.shape[2], self.num_heads*weighted_values.shape[-1])  #b x m x f 
         return self.out(weighted_values)
 
@@ -149,6 +150,15 @@ def AddNorm(x1, x2, dropout=0.1):
     layernorm = nn.LayerNorm(x1.shape[-1]).to(device)
     dropout = nn.Dropout(dropout).to(device)
     return layernorm(dropout(x1) + x2)
+class AddNorm(nn.Module):
+    """Residual connection followed by layer normalization."""
+    def __init__(self, normalized_shape, dropout=0.1, **kwargs):
+        super(AddNorm, self).__init__(**kwargs)
+        self.dropout = nn.Dropout(dropout)
+        self.ln = nn.LayerNorm(normalized_shape)
+
+    def forward(self, X, Y):
+        return self.ln(self.dropout(X) + Y)
 
 #shallow NN
 class FeedForward(nn.Module):
