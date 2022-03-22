@@ -32,10 +32,10 @@ class Encoder(nn.Module):
     def forward(self, x, mask):
         #embedding
         x = self.embedding(x)*(self.d_model**0.5)
-        x = x + self.pe(x)
+        x = self.pe(x)
         for i in range(self.num_blocks):
             x = self.block(x, mask)
-        return x 
+        return x    
 
     @property
     def attention_weights(self):

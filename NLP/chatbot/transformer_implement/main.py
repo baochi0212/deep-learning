@@ -235,11 +235,19 @@ if __name__ == "__main__":
     #define models
     learning_rate = 0.0001
     decoder_learning_ratio = 5
-    encoder = Encoder(vocab.num_words, embed_dim=128, in_dim=128, hidden_dim=128, out_dim=128).eval()
-    decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=128, out_dim=128).eval()
+    encoder = Encoder(vocab.num_words, embed_dim=128, in_dim=128, hidden_dim=128, out_dim=128).train()
+    decoder = Decoder(vocab.num_words, 128, in_dim=128, hidden_dim=128, out_dim=128).train()
     encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr=learning_rate)
-    decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate * decoder_learning_ratio)
+    decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr=learning_rate)
     start = time.time()
+    for p in encoder.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
+
+    for p in decoder.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
+    
     print('my model', train(encoder, decoder, sample, encoder_optimizer, decoder_optimizer, mode='parralel'), time.time() - start)
     #trial model in fingertips
     # net = Net(vocab_size=vocab.num_words)

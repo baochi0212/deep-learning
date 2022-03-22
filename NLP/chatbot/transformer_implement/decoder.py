@@ -61,7 +61,7 @@ class Decoder(nn.Module):
         if self.training:
             attention = False
         x = self.embedding(x)*(self.d_model**0.5)
-        x = x + self.pe(x)
+        x = self.pe(x)
         for i in range(self.num_blocks):
             x, state = self.blocks[i](x, state, src_mask, trg_mask, attention=attention)
 
