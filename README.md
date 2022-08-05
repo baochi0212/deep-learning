@@ -16,7 +16,7 @@ A repo for enshrining personal projects & hard-accumulated wisdom
 ### Installations
 
 * via Pip: *pip install -q requirements.txt* 
-* via Docker: 
+* via Docker: docker ... 
 
 ### Executing program
 
@@ -25,7 +25,10 @@ A repo for enshrining personal projects & hard-accumulated wisdom
 ```
 code blocks for commands
 ```
-
+###Strucure 
+* implement: implementation(s)
+* apps: application(s)
+* bins: others storage 
 ## Help
 
 Any advise for common problems or issues.
