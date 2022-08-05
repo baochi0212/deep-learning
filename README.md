@@ -7,7 +7,8 @@ A repo for enshrining personal projects & hard-accumulated wisdom
 ## Getting Started
 
 ### Dependencies
-
+* Ubuntu os 
+* Conda
 * Pytorch
 * Pytorch Lightning (PL)
 * Hydra
