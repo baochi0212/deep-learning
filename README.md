@@ -25,7 +25,7 @@ A repo for enshrining personal projects & hard-accumulated wisdom
 ```
 code blocks for commands
 ```
-###Strucure 
+### Strucure 
 * implement: implementation(s)
 * apps: application(s)
 * bins: others storage 
