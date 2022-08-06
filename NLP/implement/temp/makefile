@@ -32,7 +32,8 @@ utils:
 models:
 	mkdir src/models
 visualization:
-	mkdir src/visualization src/runtime
+	mkdir src/runtime
+	touch src/visualization.ipynb
 docs: 
 	mkdir docs
 
