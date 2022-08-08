@@ -11,7 +11,8 @@ import torch.nn.functional as F
 
 
 #local (need to add local dir to path for importing)
-sys.path.append('/home/xps/projects/deep-learning-/NLP/implement/temp/src')
+PATH = os.environ['dir']
+sys.path.append(PATH + "/src")
 from utils import AttentionWeight
 
 '''

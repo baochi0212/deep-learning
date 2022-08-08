@@ -3,7 +3,8 @@ import random
 from copy import deepcopy
 import pandas as pd
 import os
-sys.path.append("/home/xps/projects/deep-learning-/NLP/implement/temp/src")
+PATH = os.environ['dir']
+sys.path.append(PATH + "/src")
 
 import torch
 import torch.nn as nn
@@ -75,7 +76,7 @@ if __name__ == "__main__":
 
 
     #data
-    PATH = os.environ['dir']
+    
     data = pd.read_csv(os.path.join(PATH, 'data/raw/cornell movie-dialogs corpus/pair_df.csv'), sep='@')
     print("Df", data)
     dataset = ChatDataset(data, max_length=MAX_LEN)

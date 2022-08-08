@@ -7,7 +7,8 @@ import spacy
 import string
 import pandas as pd
 import sys
-sys.path.append('/home/xps/projects/deep-learning-/NLP/implement/temp/src')
+PATH = os.environ['dir']
+sys.path.append(PATH + "/src")
 from utils import Vocab, normalize_funcs
 import os
 from pathlib import Path
