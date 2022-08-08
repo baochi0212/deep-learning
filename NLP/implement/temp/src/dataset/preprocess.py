@@ -4,14 +4,15 @@ import csv
 import codecs
 import nltk
 import spacy
+import os
+PATH = os.environ['dir']
+sys.path.append(PATH + "/src")
 import string
 import pandas as pd
 import sys
 from utils import Vocab, normalize_funcs
-import os
 from pathlib import Path
-PATH = os.environ['dir']
-sys.path.append(PATH + "/src")
+
 #basename is the name of file, dirname is dirpath to file
 PATH = os.path.join(Path(os.path.dirname(__file__)).parent, 'data')
 
