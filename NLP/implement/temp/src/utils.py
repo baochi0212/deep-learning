@@ -8,6 +8,7 @@ import time
 
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 
 
 
@@ -15,7 +16,7 @@ import torch.nn.functional as F
 nltk.download('stopwords')
 
 #attention function
-def AttentionWeight(q, k, v, mask, type="dot"):
+def AttentionWeight(q, k, v, mask=None, type="dot"):
     '''
     - q, k, v : b x n x d (batch x n_seq x dim) <k, v same>
     query (q)  infer the attention weight from keys (k) -> w (n_seq_q x n_seq_k) 
@@ -23,11 +24,14 @@ def AttentionWeight(q, k, v, mask, type="dot"):
     - the scale 1/(sqrt(dk)) to reduce the variance (large values -> small gradients for SoftMax)
     - mask for Autoregressive Decoding (Masked Attention)
     '''
+    
     if type == "dot":
-        dot_product = torch.bmm(q, k.permute(0, 2, 1))
-        mask_weight = F.softmax(dot_product * mask, dim=-1) 
-
-    return torch.bmm(mask_weight/k.shape[-1]**0.5, v)
+        dot_product = torch.bmm(q, k.permute(0, 2, 1))/k.shape[-1]**0.5
+        if mask != None:
+            mask_weight = F.softmax(dot_product.masked_fill(mask==0, -999), dim=-1) #DCM NGU 
+        else:
+            mask_weight = F.softmax(dot_product, dim=-1)
+    return torch.bmm(mask_weight, v), mask_weight
 
 #vocab prepare class
 class Vocab:
@@ -95,16 +99,30 @@ class normalize_funcs:
             new_input.append(line1.strip())
             new_target.append(line2.strip())
         return new_input, new_target
+#mask for the [PAD] token
+'''
+Cross Entropy none-reduction: batch
+'''
+def MaskedNLL(pred, label):
+    mask = label == 0
+    loss = nn.CrossEntropyLoss(reduction='none')(pred, label)
+    loss = loss.masked_fill(mask, 0)
+    return loss.mean(dim=-1)
+    
 
 if __name__ == '__main__':
     q, k, v = torch.rand(32, 3, 10), torch.rand(32, 3, 10), torch.rand(32, 3, 10)
     mask = torch.tril(torch.ones(q.shape[1], k.shape[1]), diagonal=0) #take into account current pos 
-    print("attention", AttentionWeight(q, k, v, mask).shape)
+    print(mask)
+    print("attention", AttentionWeight(q, k, v, mask)[0].shape)
 
-    normalize = normalize_funcs()
-    text = 'A good day'
-    print(normalize.lower_case(text))
-    input = ['i love myself', 'myself']
-    target = ['myself is best version of mine', 'i love love i']
-    print("trimming", normalize.trimming(input, target))
+    # normalize = normalize_funcs()
+    # text = 'A good day'
+    # print(normalize.lower_case(text))
+    # input = ['i love myself', 'myself']
+    # target = ['myself is best version of mine', 'i love love i']
+    # print("trimming", normalize.trimming(input, target))
 
+    pred = torch.rand([2, 5])
+    label = torch.tensor([4, 0], dtype=torch.long)
+    print(MaskedNLL(pred, label))

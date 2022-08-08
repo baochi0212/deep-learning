@@ -76,6 +76,7 @@ class MultiHeadAttention(nn.Module):
         self.W_k = nn.Linear(d_model, self.d_head)
         self.W_v = nn.Linear(d_model, self.d_head)
         self.W_o = nn.Linear(d_model, d_model)
+        self.weight = 0 #for saving the weight of attention heads
 
 
 
@@ -92,10 +93,13 @@ class MultiHeadAttention(nn.Module):
         q = self.W_q(q)
         k = self.W_k(k)
         v = self.W_v(v)
-        output = AttentionWeight(q, k, v, type=self.attention, mask=self.mask)
+        #save the attention weight 
+        output, weight = AttentionWeight(q, k, v, type=self.attention, mask=self.mask)
+        self.weight = weight
         #concat heads + proj to original (Same shape notwithstandingsss)
         output = output.reshape(-1, output.shape[1], self.d_model)
         output = self.W_o(output)
+
         
 
         return output
@@ -110,18 +114,19 @@ class EncoderBlock(nn.Module):
     '''
     def __init__(self, **kwargs):
         super().__init__()
-        self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
-        self.mask = torch.ones(self.n_seq, self.n_seq)
+        _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
         self.ffn = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
-        self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h, mask=self.mask)
+        self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h, mask=None)
     def forward(self, x):
-        output = self.addNorm(self.attention(x, x, x))
+        output = self.attention(x, x, x)
+        output = self.addNorm(output)
         output = self.addNorm(self.ffn(output))
         return output
 
 
     def addNorm(self, x):
         return nn.Dropout(self.p_drop)(nn.LayerNorm(x.shape[-1])(x)) + x
+
 
 class DecoderBlock(nn.Module):
     '''
@@ -135,26 +140,26 @@ class DecoderBlock(nn.Module):
     - state contains the encoder info, and the latest POSITION output for concatenation at block i(key)
         state[0]: encoder ouput, state[1]: encoder n_seq, state[2]: <pos - 1, i> 
     '''
-    def __init__(self, i, mode='training', **kwargs):
+    def __init__(self, i, **kwargs):
         super().__init__()
         self.i = i
-        self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
-        self.mode = mode
-        if mode == "training":
+        _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
+        if self.training:
             self.mask = torch.tril(torch.ones(self.n_seq, self.n_seq))
+        else:
+            self.mask = None
         self.ffn1 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.mask_attention = MultiHeadAttention(d_model=self.d_model, h=self.h, mask=self.mask)
         self.ffn2 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
-        self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h, mask=self.mask)
+        self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
     def forward(self, x, state):
         #state[2][i] is block i for latest position
         i = self.i
-        print("STATE", len(state))
         if state[2][i] == None:
             state[2][i] = x
         else:
             state[2][i] = torch.cat([state[2][i], x], dim=1)
-        if self.mode == "training":
+        if self.training:
             k = x
         else:
             k = state[2][i]
@@ -181,17 +186,24 @@ class Encoder(nn.Module):
     '''
     def __init__(self,  **kwargs):
         super().__init__()
-        self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing = kwargs.values()
-        self.Embedding = nn.Embedding(self.n_seq, self.d_model)
+        self.vocab_size, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing = kwargs.values()
+        self.Embedding = nn.Embedding(self.vocab_size, self.d_model)
         moduleList = [EncoderBlock(**kwargs) for i in range(self.N)]
         self.layers = nn.Sequential(*moduleList)
-
+        self._attention_weights = {'attention': []}
     def forward(self, x):
         x = self.Embedding(x)
         x = PositionalEncoding('direct', scale=10000, p_drop=self.p_drop, x=x, d_model=self.d_model)
+        i = 0
         for layer in self.layers:
             x = layer(x)
+            self._attention_weights['attention'].append(layer.attention.weight)
         return x
+    @property
+    def attention_weights(self):
+        return self._attention_weights
+
+    
 
 class Decoder(nn.Module):
     '''
@@ -200,10 +212,12 @@ class Decoder(nn.Module):
     '''
     def __init__(self, **kwargs):
         super().__init__()
-        self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing = kwargs.values()
-        self.Embedding = nn.Embedding(self.n_seq, self.d_model)
+        self.vocab_size, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing = kwargs.values()
+        self.Embedding = nn.Embedding(self.vocab_size, self.d_model)
         moduleList = [DecoderBlock(i, **kwargs) for i in range(self.N)]
         self.layers = nn.Sequential(*moduleList)
+        self._attention_weights = {'mask_attention': [], 'attention': []}
+        self.linear = nn.Linear(self.d_model, self.vocab_size)
     def init_state(self, encoder_output, encoder_n_seq):
         return [encoder_output, encoder_n_seq, [None]*self.N]
     def forward(self, x, state):
@@ -211,8 +225,13 @@ class Decoder(nn.Module):
         x = PositionalEncoding('direct', scale=10000, p_drop=self.p_drop, x=x, d_model=self.d_model)
         for layer in self.layers:
             x, state = layer(x, state)
-            print(x.shape, layer.i)
+            self._attention_weights['mask_attention'].append(layer.mask_attention.weight)
+            self._attention_weights['attention'].append(layer.attention.weight)
+        x = self.linear(x)
         return x, state
+    @property
+    def attention_weights(self):
+        return self._attention_weights
             
 
 
@@ -232,13 +251,10 @@ class Seq2Seq(nn.Module):
         output when testing: '<sos>'
         '''
         x = self.encoder(x)
-        print("????", x.shape)
         #encoder: b x n x d
         state = self.decoder.init_state(x, x.shape[1])
-        print("XXXX", state[0].shape, state[1])
         #decoder:
         outputs, state = self.decoder(y, state)
-        print('????/')
         return outputs, state
 
 
@@ -249,17 +265,21 @@ if __name__ == '__main__':
     '''
     q, k, v = torch.rand(32, 5, 512), torch.rand(32, 5, 512), torch.rand(32, 5, 512)
     print("bf PE", q[0, 3, 9])
-    print("Attention Block", EncoderBlock(n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)(q).shape)
+    mask = torch.tril(torch.ones(5, 5))
+    head =  MultiHeadAttention(d_model=512, h=8, mask=mask)
+    head(q, k, v)
+    print("Attention Block", head.weight[0])
     q = PositionalEncoding('direct', 10000, 0.1, x=q, d_model=q.shape[-1])
     print("af PE", q[0, 3, 9])
-    # Encoder
-    # self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing
-    x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
-    encoder = Encoder(n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
-    print("Encoder", encoder(x).shape)
-    decoder = Decoder(n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
+    # # Encoder
+    # # self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing
+    # x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
+    encoder = Encoder(vocab=10000, n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
+    decoder = Decoder(vocab=10000, n_seq=4, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
     seq2seq = Seq2Seq(encoder, decoder)
-    #rand 
+    # # #rand 
     x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
-    y = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
+    y = torch.tensor([0, 1, 2, 3], dtype=torch.long).unsqueeze(0)
     print("seq2seq", seq2seq(x, y)[0].shape)
+    # print("weights", decoder.attention_weights['mask_attention'][0][0])
+    # print(encoder(x).shape)

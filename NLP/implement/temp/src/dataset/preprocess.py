@@ -71,9 +71,10 @@ def extract_csv(input, target, path_to_save, MAX_LEN=10):
 if __name__ == '__main__':
     #get data
     normalizer = normalize_funcs()
-    line_path = '/home/xps/projects/deep-learning-/NLP/implement/temp/data/raw/cornell movie-dialogs corpus/movie_lines.txt'
-    conversation_path = '/home/xps/projects/deep-learning-/NLP/implement/temp/data/raw/cornell movie-dialogs corpus/movie_conversations.txt'
-    csv_path = '/home/xps/projects/deep-learning-/NLP/implement/temp/data/raw/cornell movie-dialogs corpus/pair_df.csv'
+    PATH = os.environ['dir']
+    line_path = os.path.join(PATH, 'data/raw/cornell movie-dialogs corpus/movie_lines.txt')
+    conversation_path = os.path.join(PATH, 'data/raw/cornell movie-dialogs corpus/movie_conversations.txt')
+    csv_path = os.path.join(PATH, 'data/raw/cornell movie-dialogs corpus/pair_df.csv')
     print(extract_lines(line_path)['L104'])
     input, target = extract_pairs(conversation_path, line_path)
     print("----INPUT, TARGET", input[0], target[0])
