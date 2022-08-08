@@ -7,12 +7,11 @@ import spacy
 import string
 import pandas as pd
 import sys
-PATH = os.environ['dir']
-sys.path.append(PATH + "/src")
 from utils import Vocab, normalize_funcs
 import os
 from pathlib import Path
-
+PATH = os.environ['dir']
+sys.path.append(PATH + "/src")
 #basename is the name of file, dirname is dirpath to file
 PATH = os.path.join(Path(os.path.dirname(__file__)).parent, 'data')
 
