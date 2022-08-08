@@ -5,11 +5,12 @@ import codecs
 import nltk
 import spacy
 import os
+import sys
 PATH = os.environ['dir']
 sys.path.append(PATH + "/src")
 import string
 import pandas as pd
-import sys
+
 from utils import Vocab, normalize_funcs
 from pathlib import Path
 
