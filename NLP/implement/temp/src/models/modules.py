@@ -2,7 +2,7 @@
 import sys
 from einops import repeat
 import math
-
+import os 
 
 #dllib
 import torch
@@ -14,15 +14,15 @@ import torch.nn.functional as F
 PATH = os.environ['dir']
 sys.path.append(PATH + "/src")
 from utils import AttentionWeight
-
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 '''
 - method: __call__()
 A() -> A(input) == A.forward(input), A will have data&behaviors of Pytorch Module class 
 - Multi-head : h = 8, d = 512 
 '''
 #Positional Encoding
-def PositionalEncoding(type, scale, p_drop, plot=False, **kwargs):
-    '''
+def PositionalEncoding(type, scale, p_drop, device=device, plot=False, **kwargs):
+    ''' 
     - Relative PE vs Trigonometric PE
     Trigonometric PE: sin for 2i and cos for 2i + 1 -> n x d <pos, dim> 
 
@@ -39,7 +39,7 @@ def PositionalEncoding(type, scale, p_drop, plot=False, **kwargs):
                 else:
                     PE[i, j] += math.cos(i/scale**((j-1)/d_model))
         
-        x += PE
+        x += PE.to(device)
         x = nn.Dropout(p_drop)(x)
         if plot:
             return x, PE
@@ -71,14 +71,14 @@ class MultiHeadAttention(nn.Module):
         self.h = h
         self.d_model = d_model
         self.attention = attention
-        self.mask = mask
         self.d_head = int(d_model/h)
         self.W_q = nn.Linear(d_model, self.d_head)
         self.W_k = nn.Linear(d_model, self.d_head)
         self.W_v = nn.Linear(d_model, self.d_head)
         self.W_o = nn.Linear(d_model, d_model)
+        self.register_buffer('mask', mask)
         self.weight = 0 #for saving the weight of attention heads
-
+        
 
 
     def forward(self, q, k, v):
@@ -194,7 +194,7 @@ class Encoder(nn.Module):
         self._attention_weights = {'attention': []}
     def forward(self, x):
         x = self.Embedding(x)
-        x = PositionalEncoding('direct', scale=10000, p_drop=self.p_drop, x=x, d_model=self.d_model)
+        x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, p_drop=self.p_drop, x=x, d_model=self.d_model)
         i = 0
         for layer in self.layers:
             x = layer(x)
@@ -223,7 +223,7 @@ class Decoder(nn.Module):
         return [encoder_output, encoder_n_seq, [None]*self.N]
     def forward(self, x, state):
         x = self.Embedding(x)
-        x = PositionalEncoding('direct', scale=10000, p_drop=self.p_drop, x=x, d_model=self.d_model)
+        x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, p_drop=self.p_drop, x=x, d_model=self.d_model)
         for layer in self.layers:
             x, state = layer(x, state)
             self._attention_weights['mask_attention'].append(layer.mask_attention.weight)
@@ -264,10 +264,11 @@ if __name__ == '__main__':
     '''
     Testing the modules 
     '''
-    q, k, v = torch.rand(32, 5, 512), torch.rand(32, 5, 512), torch.rand(32, 5, 512)
+    q, k, v = torch.rand(32, 5, 512).to(device), torch.rand(32, 5, 512).to(device), torch.rand(32, 5, 512).to(device)
     print("bf PE", q[0, 3, 9])
     mask = torch.tril(torch.ones(5, 5))
-    head =  MultiHeadAttention(d_model=512, h=8, mask=mask)
+    head =  MultiHeadAttention(d_model=512, h=8, mask=mask).to(device)
+    print('grad checking', head.W_q.weight.requires_grad, head.mask.requires_grad) 
     head(q, k, v)
     print("Attention Block", head.weight[0])
     q = PositionalEncoding('direct', 10000, 0.1, x=q, d_model=q.shape[-1])
@@ -277,10 +278,10 @@ if __name__ == '__main__':
     # x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
     encoder = Encoder(vocab=10000, n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
     decoder = Decoder(vocab=10000, n_seq=4, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
-    seq2seq = Seq2Seq(encoder, decoder)
+    seq2seq = Seq2Seq(encoder, decoder).to(device)
     # # #rand 
-    x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
-    y = torch.tensor([0, 1, 2, 3], dtype=torch.long).unsqueeze(0)
-    print("seq2seq", seq2seq(x, y)[0].shape)
+    x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0).to(device)
+    y = torch.tensor([0, 1, 2, 3], dtype=torch.long).unsqueeze(0).to(device)
+    print("seq2seq", seq2seq(x, y)[0].shape, next(seq2seq.parameters()).device)
     # print("weights", decoder.attention_weights['mask_attention'][0][0])
     # print(encoder(x).shape)
