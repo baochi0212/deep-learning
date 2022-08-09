@@ -105,6 +105,14 @@ class MultiHeadAttention(nn.Module):
 
         return output
 
+class AddNorm(nn.Module):
+    def __init__(self, p_dropout, d_model):
+        super().__init__()
+        self.dropout = nn.Dropout(p_dropout)
+        self.layernorm = nn.LayerNorm(d_model)
+    def forward(self, x):
+        return self.dropout(self.layernorm(x)) + x
+
 class EncoderBlock(nn.Module):
     '''
     - Multi head attention 
@@ -118,6 +126,7 @@ class EncoderBlock(nn.Module):
         _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
         self.ffn = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h, mask=None)
+        self.addNorm = AddNorm(self.p_drop, self.d_model)
     def forward(self, x):
         output = self.attention(x, x, x)
         output = self.addNorm(output)
@@ -125,8 +134,7 @@ class EncoderBlock(nn.Module):
         return output
 
 
-    def addNorm(self, x):
-        return nn.Dropout(self.p_drop)(nn.LayerNorm(x.shape[-1])(x)) + x
+
 
 
 class DecoderBlock(nn.Module):
@@ -153,6 +161,7 @@ class DecoderBlock(nn.Module):
         self.mask_attention = MultiHeadAttention(d_model=self.d_model, h=self.h, mask=self.mask)
         self.ffn2 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
+        self.addNorm = AddNorm(self.p_drop, self.d_model)
     def forward(self, x, state):
         #state[2][i] is block i for latest position
         i = self.i
@@ -171,9 +180,6 @@ class DecoderBlock(nn.Module):
         output = self.addNorm(x)
         return output, state
 
-
-    def addNorm(self, x):
-        return nn.Dropout(self.p_drop)(nn.LayerNorm(x.shape[-1])(x)) + x
         
 class Encoder(nn.Module):
     '''
