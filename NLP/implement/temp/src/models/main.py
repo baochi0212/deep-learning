@@ -98,7 +98,7 @@ if __name__ == "__main__":
     ckp_dir = os.path.join(PATH, "src/runtime/checkpoints")
     custom_callbacks = [LearningRateMonitor(logging_interval='step'), EarlyStopping(monitor='val loss: ', mode='min', patience=3), ModelCheckpoint(dirpath='/media/data/chitb/study_zone/ML-_midterm_20212/final_ckp', monitor='val loss: ', mode='min')]
     #training 
-    trainer = pl.Trainer(accelerator='cpu',  default_root_dir=ckp_dir, logger=wandb_logger, callbacks=custom_callbacks, max_epochs=3, fast_dev_run=True)
+    trainer = pl.Trainer(accelerator='cuda' if torch.cuda.is_available() else 'cpu',  default_root_dir=ckp_dir, logger=wandb_logger, callbacks=custom_callbacks, max_epochs=3, fast_dev_run=True)
     trainer.fit(plModule, dataloader)
 
         
