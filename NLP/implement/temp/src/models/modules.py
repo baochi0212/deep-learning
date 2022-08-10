@@ -83,6 +83,8 @@ class MultiHeadAttention(nn.Module):
 
     def forward(self, q, k, v, mask=None):
         self.register_buffer('mask', mask)
+        self.mask.to(self.parameters().device)
+        print("mask", self.mask.device)
         '''
         split b x n x h x d_model -> project +  8 heads: d_head -> concat b x n x d_model -> spaces projection
         '''
@@ -154,10 +156,6 @@ class DecoderBlock(nn.Module):
         super().__init__()
         self.i = i
         _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
-        if self.training:
-            self.mask = torch.tril(torch.ones(self.n_seq, self.n_seq))
-        else:
-            self.mask = None
         self.ffn1 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.mask_attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
         self.ffn2 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
@@ -179,7 +177,7 @@ class DecoderBlock(nn.Module):
         else:
             k = state[2][i]
             mask = None
-        mask.to(next(self.parameters()).device)
+        
             
         x = self.mask_attention(x, k, k, mask)
         x = self.addNorm(x)
