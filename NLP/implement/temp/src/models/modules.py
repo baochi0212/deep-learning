@@ -81,7 +81,7 @@ class MultiHeadAttention(nn.Module):
         
 
 
-    def forward(self, q, k, v, mask=torch.tensor(1)):
+    def forward(self, q, k, v, mask=None):
         self.register_buffer('mask', mask)
         '''
         split b x n x h x d_model -> project +  8 heads: d_head -> concat b x n x d_model -> spaces projection
@@ -179,6 +179,7 @@ class DecoderBlock(nn.Module):
         else:
             k = state[2][i]
             mask = None
+        mask.to(next(self.parameters()).device)
             
         x = self.mask_attention(x, k, k, mask)
         x = self.addNorm(x)
@@ -280,7 +281,7 @@ if __name__ == '__main__':
     print("bf PE", q[0, 3, 9])
     mask = torch.tril(torch.ones(5, 5))
     head =  MultiHeadAttention(d_model=512, h=8).to(device)
-    head(q, k, v)
+    head(q, k, v, mask=torch.tensor(1))
     print('grad checking', head.W_q.weight.requires_grad, head.mask.requires_grad) 
     head(q, k, v)
     print("Attention Block", head.weight[0])
