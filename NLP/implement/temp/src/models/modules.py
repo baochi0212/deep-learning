@@ -59,7 +59,7 @@ class PointwiseFFN(nn.Module):
         return self.W_o(F.relu(self.W_ff(x)))
 #Multihead attnetion
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model=512, h=8, attention='dot', mask=None):
+    def __init__(self, d_model=512, h=8, attention='dot'):
         
         '''
         - num_heads, d_model -> Projection Q, K, V subspaces
@@ -76,12 +76,13 @@ class MultiHeadAttention(nn.Module):
         self.W_k = nn.Linear(d_model, self.d_head)
         self.W_v = nn.Linear(d_model, self.d_head)
         self.W_o = nn.Linear(d_model, d_model)
-        self.register_buffer('mask', mask)
+        
         self.weight = 0 #for saving the weight of attention heads
         
 
 
-    def forward(self, q, k, v):
+    def forward(self, q, k, v, mask=torch.tensor(1)):
+        self.register_buffer('mask', mask)
         '''
         split b x n x h x d_model -> project +  8 heads: d_head -> concat b x n x d_model -> spaces projection
         '''
@@ -125,10 +126,10 @@ class EncoderBlock(nn.Module):
         super().__init__()
         _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
         self.ffn = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
-        self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h, mask=None)
+        self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
         self.addNorm = AddNorm(self.p_drop, self.d_model)
     def forward(self, x):
-        output = self.attention(x, x, x)
+        output = self.attention(x, x, x, None)
         output = self.addNorm(output)
         output = self.addNorm(self.ffn(output))
         return output
@@ -158,11 +159,14 @@ class DecoderBlock(nn.Module):
         else:
             self.mask = None
         self.ffn1 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
-        self.mask_attention = MultiHeadAttention(d_model=self.d_model, h=self.h, mask=self.mask)
+        self.mask_attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
         self.ffn2 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
         self.addNorm = AddNorm(self.p_drop, self.d_model)
     def forward(self, x, state):
+        '''
+        mask attention for the decode seq
+        '''
         #state[2][i] is block i for latest position
         i = self.i
         if state[2][i] == None:
@@ -171,12 +175,14 @@ class DecoderBlock(nn.Module):
             state[2][i] = torch.cat([state[2][i], x], dim=1)
         if self.training:
             k = x
+            mask = torch.tril(torch.ones(x.shape[1], x.shape[1]))
         else:
             k = state[2][i]
+            mask = None
             
-        x = self.mask_attention(x, k, k)
+        x = self.mask_attention(x, k, k, mask)
         x = self.addNorm(x)
-        x = self.attention(x, state[0], state[0])
+        x = self.attention(x, state[0], state[0], None)
         output = self.addNorm(x)
         return output, state
 
@@ -273,7 +279,8 @@ if __name__ == '__main__':
     q, k, v = torch.rand(32, 5, 512).to(device), torch.rand(32, 5, 512).to(device), torch.rand(32, 5, 512).to(device)
     print("bf PE", q[0, 3, 9])
     mask = torch.tril(torch.ones(5, 5))
-    head =  MultiHeadAttention(d_model=512, h=8, mask=mask).to(device)
+    head =  MultiHeadAttention(d_model=512, h=8).to(device)
+    head(q, k, v)
     print('grad checking', head.W_q.weight.requires_grad, head.mask.requires_grad) 
     head(q, k, v)
     print("Attention Block", head.weight[0])
@@ -287,7 +294,7 @@ if __name__ == '__main__':
     seq2seq = Seq2Seq(encoder, decoder).to(device)
     # # #rand 
     x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0).to(device)
-    y = torch.tensor([0, 1, 2, 3], dtype=torch.long).unsqueeze(0).to(device)
+    y = torch.tensor([0, 1, 2], dtype=torch.long).unsqueeze(0).to(device)
     print("seq2seq", seq2seq(x, y)[0].shape, next(seq2seq.parameters()).device)
     # print("weights", decoder.attention_weights['mask_attention'][0][0])
     # print(encoder(x).shape)
