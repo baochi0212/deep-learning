@@ -84,7 +84,7 @@ class MultiHeadAttention(nn.Module):
     def forward(self, q, k, v, mask=None):
         self.register_buffer('mask', mask)
         if mask != None:
-            self.mask = self.mask.to(self.parameters().device)
+            self.mask = self.mask.to(next(self.parameters()).device)
             print("mask", self.mask.device)
         '''
         split b x n x h x d_model -> project +  8 heads: d_head -> concat b x n x d_model -> spaces projection
