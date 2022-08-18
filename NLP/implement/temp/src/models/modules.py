@@ -89,11 +89,11 @@ class MultiHeadAttention(nn.Module):
         split b x n x h x d_model -> project +  8 heads: d_head -> concat b x n x d_model -> spaces projection
         '''
         #split 
-        q = repeat(q, 'b n d -> b h n d', h=8)
-        k = repeat(k, 'b n d -> b h n d', h=8)
-        v = repeat(v, 'b n d -> b h n d', h=8)
+        q = repeat(q, 'b n d -> b h n d', h=self.h)
+        k = repeat(k, 'b n d -> b h n d', h=self.h)
+        v = repeat(v, 'b n d -> b h n d', h=self.h)
         q, k, v = q.reshape(-1, q.shape[2], self.d_model), k.reshape(-1, k.shape[2], self.d_model), v.reshape(-1, v.shape[2], self.d_model)
-        #project + attention 
+        #project + attention    
         q = self.W_q(q)
         k = self.W_k(k)
         v = self.W_v(v)
@@ -278,22 +278,22 @@ if __name__ == '__main__':
     q, k, v = torch.rand(32, 5, 512).to(device), torch.rand(32, 5, 512).to(device), torch.rand(32, 5, 512).to(device)
     print("bf PE", q[0, 3, 9])
     mask = torch.tril(torch.ones(5, 5))
-    head =  MultiHeadAttention(d_model=512, h=8).to(device)
-    head(q, k, v, mask=torch.tensor(1))
+    head =  MultiHeadAttention(d_model=512, h=4).to(device)
+    output = head(q, k, v, mask=torch.tensor(1))
     print('grad checking', head.W_q.weight.requires_grad, head.mask.requires_grad) 
-    head(q, k, v)
-    print("Attention Block", head.weight[0])
-    q = PositionalEncoding('direct', 10000, 0.1, x=q, d_model=q.shape[-1])
-    print("af PE", q[0, 3, 9])
-    # # Encoder
-    # # self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing
-    # x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
-    encoder = Encoder(vocab=10000, n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
-    decoder = Decoder(vocab=10000, n_seq=4, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
-    seq2seq = Seq2Seq(encoder, decoder).to(device)
-    # # #rand 
-    x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0).to(device)
-    y = torch.tensor([0, 1, 2], dtype=torch.long).unsqueeze(0).to(device)
-    print("seq2seq", seq2seq(x, y)[0].shape, next(seq2seq.parameters()).device)
-    # print("weights", decoder.attention_weights['mask_attention'][0][0])
-    # print(encoder(x).shape)
+    print("output", output.shape)
+    print("Attention Block", head.weight[0].shape)
+    # q = PositionalEncoding('direct', 10000, 0.1, x=q, d_model=q.shape[-1])
+    # print("af PE", q[0, 3, 9])
+    # # # Encoder
+    # # # self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing
+    # # x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
+    # encoder = Encoder(vocab=10000, n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
+    # decoder = Decoder(vocab=10000, n_seq=4, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
+    # seq2seq = Seq2Seq(encoder, decoder).to(device)
+    # # # #rand 
+    # x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0).to(device)
+    # y = torch.tensor([0, 1, 2], dtype=torch.long).unsqueeze(0).to(device)
+    # print("seq2seq", seq2seq(x, y)[0].shape, next(seq2seq.parameters()).device)
+    # # print("weights", decoder.attention_weights['mask_attention'][0][0])
+    # # print(encoder(x).shape)

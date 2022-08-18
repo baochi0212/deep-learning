@@ -131,8 +131,8 @@ if __name__ == "__main__":
     src, tgt = iter(train_dataloader).next()
 
     # #define lightning module 
-    encoder = Encoder(vocab=VOCAB_SIZE, n_seq=MAX_LEN, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
-    decoder = Decoder(vocab=VOCAB_SIZE, n_seq=MAX_LEN-1, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
+    encoder = Encoder(vocab=VOCAB_SIZE, n_seq=MAX_LEN, d_model=256, d_ff=64, h=8, N=6, p_drop=0.1, label_smoothing=None)
+    decoder = Decoder(vocab=VOCAB_SIZE, n_seq=MAX_LEN-1, d_model=256, d_ff=64, h=8, N=6, p_drop=0.1, label_smoothing=None)
     seq2seq = Seq2Seq(encoder, decoder)
     print("sanity check", seq2seq(src, tgt[:, :-1])[0].shape)
     plModule = ChatMachine(lr=0.01, mode='teacher_forcing')
@@ -147,7 +147,7 @@ if __name__ == "__main__":
     # #training 
     # trainer = pl.Trainer(accelerator='cuda' if torch.cuda.is_available() else 'cpu',  default_root_dir=ckp_dir, logger=wandb_logger, callbacks=custom_callbacks, max_epochs=3, fast_dev_run=True)
     # trainer.fit(plModule, dataloader)
-    train(train_dataloader, val_dataloader, seq2seq)
+    # train(train_dataloader, val_dataloader, seq2seq)
         
 
 
