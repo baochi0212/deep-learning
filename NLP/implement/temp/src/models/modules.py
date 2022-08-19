@@ -113,8 +113,8 @@ class AddNorm(nn.Module):
         super().__init__()
         self.dropout = nn.Dropout(p_dropout)
         self.layernorm = nn.LayerNorm(d_model)
-    def forward(self, x):
-        return self.dropout(self.layernorm(x)) + x
+    def forward(self, x, y):
+        return self.dropout(self.layernorm(y)) + x
 
 class EncoderBlock(nn.Module):
     '''
@@ -129,11 +129,12 @@ class EncoderBlock(nn.Module):
         _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
         self.ffn = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
-        self.addNorm = AddNorm(self.p_drop, self.d_model)
+        self.addNorm1 = AddNorm(self.p_drop, self.d_model)
+        self.addNorm2 = AddNorm(self.p_drop, self.d_model)
     def forward(self, x):
         output = self.attention(x, x, x, None)
-        output = self.addNorm(output)
-        output = self.addNorm(self.ffn(output))
+        x = self.addNorm1(x, output)
+        output = self.addNorm2(output, self.ffn(output))
         return output
 
 
@@ -156,14 +157,16 @@ class DecoderBlock(nn.Module):
         super().__init__()
         self.i = i
         _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
-        self.ffn1 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.mask_attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
-        self.ffn2 = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
+        self.ffn = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
-        self.addNorm = AddNorm(self.p_drop, self.d_model)
+        self.addNorm1 = AddNorm(self.p_drop, self.d_model)
+        self.addNorm2 = AddNorm(self.p_drop, self.d_model)
+        self.addNorm3 = AddNorm(self.p_drop, self.d_model)  
     def forward(self, x, state):
         '''
         mask attention for the decode seq
+        x for keeping track, output for module return value.
         '''
         #state[2][i] is block i for latest position
         i = self.i
@@ -179,10 +182,11 @@ class DecoderBlock(nn.Module):
             mask = None
         
             
-        x = self.mask_attention(x, k, k, mask)
-        x = self.addNorm(x)
-        x = self.attention(x, state[0], state[0], None)
-        output = self.addNorm(x)
+        output = self.mask_attention(x, k, k, mask)
+        x = self.addNorm1(x, output)
+        output = self.attention(x, state[0], state[0], None)
+        x = self.addNorm2(x, output)
+        output = self.addNorm3(x, self.ffn(x))
         return output, state
 
         
@@ -285,15 +289,15 @@ if __name__ == '__main__':
     print("Attention Block", head.weight[0].shape)
     # q = PositionalEncoding('direct', 10000, 0.1, x=q, d_model=q.shape[-1])
     # print("af PE", q[0, 3, 9])
-    # # # Encoder
-    # # # self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing
-    # # x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
-    # encoder = Encoder(vocab=10000, n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
-    # decoder = Decoder(vocab=10000, n_seq=4, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
-    # seq2seq = Seq2Seq(encoder, decoder).to(device)
+    # # Encoder
+    # # self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, self.label_smoothing
+    # x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0)
+    encoder = Encoder(vocab=10000, n_seq=5, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
+    decoder = Decoder(vocab=10000, n_seq=4, d_model=512, d_ff=2048, h=8, N=6, p_drop=0.1, label_smoothing=None)
+    seq2seq = Seq2Seq(encoder, decoder).to(device)
     # # # #rand 
-    # x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0).to(device)
-    # y = torch.tensor([0, 1, 2], dtype=torch.long).unsqueeze(0).to(device)
-    # print("seq2seq", seq2seq(x, y)[0].shape, next(seq2seq.parameters()).device)
-    # # print("weights", decoder.attention_weights['mask_attention'][0][0])
-    # # print(encoder(x).shape)
+    x = torch.tensor([0, 1, 2, 3, 4], dtype=torch.long).unsqueeze(0).to(device)
+    y = torch.tensor([0, 1, 2], dtype=torch.long).unsqueeze(0).to(device)
+    print("seq2seq", seq2seq(x, y)[0].shape, next(seq2seq.parameters()).device)
+    # print("weights", decoder.attention_weights['mask_attention'][0][0])
+    # print(encoder(x).shape)
