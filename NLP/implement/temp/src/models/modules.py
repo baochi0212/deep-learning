@@ -183,17 +183,16 @@ class DecoderBlock(nn.Module):
         mask attention for the decode seq
         x for keeping track, output for module return value.
         '''
-        #state[2][i] is block i for latest position
+        #state[2][i] is block i for latest position (in sequence)
         i = self.i
         if state[2][i] == None:
             state[2][i] = x
         else:
             state[2][i] = torch.cat([state[2][i], x], dim=1)
+        k = state[2][i]
         if self.training:
-            k = x
             mask = torch.tril(torch.ones(x.shape[1], x.shape[1]))
         else:
-            k = state[2][i]
             mask = None
         
             
