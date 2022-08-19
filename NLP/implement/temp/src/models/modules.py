@@ -108,12 +108,13 @@ class MultiHeadAttention(nn.Module):
         q = repeat(q, 'b n d -> b h n d', h=self.h)
         k = repeat(k, 'b n d -> b h n d', h=self.h)
         v = repeat(v, 'b n d -> b h n d', h=self.h)
-        q, k, v = q.reshape(-1, q.shape[2], self.d_model), k.reshape(-1, k.shape[2], self.d_model), v.reshape(-1, v.shape[2], self.d_model)
+        
         #project + attention    
         q = self.W_q(q)
         k = self.W_k(k)
         v = self.W_v(v)
-        #save the attention weight 
+        #save the attention weight \
+        q, k, v = q.reshape(-1, q.shape[2], self.d_model), k.reshape(-1, k.shape[2], self.d_model), v.reshape(-1, v.shape[2], self.d_model)
         output, weight = AttentionWeight(q, k, v, type=self.attention, mask=self.mask)
         self.weight = weight
         #concat heads + proj to original (Same shape notwithstandingsss)
