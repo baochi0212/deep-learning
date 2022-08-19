@@ -148,10 +148,9 @@ class EncoderBlock(nn.Module):
         self.addNorm1 = AddNorm(self.p_drop, self.d_model)
         self.addNorm2 = AddNorm(self.p_drop, self.d_model)
     def forward(self, x):
-        output = self.attention(x, x, x, None)
-        x = self.addNorm1(x, output)
-        output = self.addNorm2(output, self.ffn(output))
-        return output
+        x = self.addNorm1(x, self.attention(x, x, x, None))
+        x = self.addNorm2(x, self.ffn(x))
+        return x
 
 
 
@@ -198,12 +197,10 @@ class DecoderBlock(nn.Module):
             mask = None
         
             
-        output = self.mask_attention(x, k, k, mask)
-        x = self.addNorm1(x, output)
-        output = self.attention(x, state[0], state[0], None)
-        x = self.addNorm2(x, output)
-        output = self.addNorm3(x, self.ffn(x))
-        return output, state
+        x = self.addNorm1(x, self.mask_attention(x, k, k, mask))
+        x = self.addNorm2(x, self.attention(x, state[0], state[0], None))
+        x = self.addNorm3(x, self.ffn(x))
+        return x, state
 
         
 class Encoder(nn.Module):
