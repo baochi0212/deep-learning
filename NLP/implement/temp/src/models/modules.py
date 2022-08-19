@@ -20,8 +20,25 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 A() -> A(input) == A.forward(input), A will have data&behaviors of Pytorch Module class 
 - Multi-head : h = 8, d = 512 
 '''
+#@save
+class PE(nn.Module):
+    """Positional encoding."""
+    def __init__(self, num_hiddens, dropout, max_len=1000):
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+        # Create a long enough P
+        self.P = torch.zeros((1, max_len, num_hiddens))
+        X = torch.arange(max_len, dtype=torch.float32).reshape(
+            -1, 1) / torch.pow(10000, torch.arange(
+            0, num_hiddens, 2, dtype=torch.float32) / num_hiddens)
+        self.P[:, :, 0::2] = torch.sin(X)
+        self.P[:, :, 1::2] = torch.cos(X)
+
+    def forward(self, X):
+        X = X + self.P[:, :X.shape[1], :].to(X.device)
+        return self.dropout(X)
 #Positional Encoding
-def PositionalEncoding(type, scale, p_drop, device=device, plot=False, **kwargs):
+def PositionalEncoding(type, scale, device=device, plot=False, **kwargs):
     ''' 
     - Relative PE vs Trigonometric PE
     Trigonometric PE: sin for 2i and cos for 2i + 1 -> n x d <pos, dim> 
@@ -40,7 +57,6 @@ def PositionalEncoding(type, scale, p_drop, device=device, plot=False, **kwargs)
                     PE[i, j] += math.cos(i/scale**((j-1)/d_model))
         
         x += PE.to(device)
-        x = nn.Dropout(p_drop)(x)
         if plot:
             return x, PE
         return x
@@ -50,7 +66,7 @@ def PositionalEncoding(type, scale, p_drop, device=device, plot=False, **kwargs)
 
 
 #Point-wise FFN
-class PointwiseFFN(nn.Module):
+class PositionWiseFFN(nn.Module):
     def __init__(self, d_model=512, d_ff=2048):
         super().__init__()
         self.W_ff = nn.Linear(d_model, d_ff)
@@ -127,7 +143,7 @@ class EncoderBlock(nn.Module):
     def __init__(self, **kwargs):
         super().__init__()
         _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
-        self.ffn = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
+        self.ffn = PositionWiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
         self.addNorm1 = AddNorm(self.p_drop, self.d_model)
         self.addNorm2 = AddNorm(self.p_drop, self.d_model)
@@ -158,7 +174,7 @@ class DecoderBlock(nn.Module):
         self.i = i
         _, self.n_seq, self.d_model, self.d_ff, self.h, self.N, self.p_drop, _ = kwargs.values()
         self.mask_attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
-        self.ffn = PointwiseFFN(d_model=self.d_model, d_ff=self.d_ff)
+        self.ffn = PositionWiseFFN(d_model=self.d_model, d_ff=self.d_ff)
         self.attention = MultiHeadAttention(d_model=self.d_model, h=self.h)
         self.addNorm1 = AddNorm(self.p_drop, self.d_model)
         self.addNorm2 = AddNorm(self.p_drop, self.d_model)
@@ -207,9 +223,11 @@ class Encoder(nn.Module):
         moduleList = [EncoderBlock(**kwargs) for i in range(self.N)]
         self.layers = nn.Sequential(*moduleList)
         self._attention_weights = {'attention': []}
+        self.pos_encoding = PE(self.d_model, 0.1)
     def forward(self, x):
         x = self.Embedding(x)
-        x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, p_drop=self.p_drop, x=x, d_model=self.d_model)
+        x = self.pos_encoding(x)
+        # x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, p_drop=self.p_drop, x=x, d_model=self.d_model)
         i = 0
         for layer in self.layers:
             x = layer(x)
@@ -234,11 +252,13 @@ class Decoder(nn.Module):
         self.layers = nn.Sequential(*moduleList)
         self._attention_weights = {'mask_attention': [], 'attention': []}
         self.linear = nn.Linear(self.d_model, self.vocab_size)
+        self.pos_encoding = PE(self.d_model, 0.1)
     def init_state(self, encoder_output, encoder_n_seq):
         return [encoder_output, encoder_n_seq, [None]*self.N]
     def forward(self, x, state):
         x = self.Embedding(x)
-        x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, p_drop=self.p_drop, x=x, d_model=self.d_model)
+        x = self.pos_encoding(x)
+        # x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, p_drop=self.p_drop, x=x, d_model=self.d_model)
         for layer in self.layers:
             x, state = layer(x, state)
             self._attention_weights['mask_attention'].append(layer.mask_attention.weight)
