@@ -23,14 +23,15 @@ def AttentionWeight(q, k, v, mask=None, type="dot"):
     weight (w) infer the value for query -> n_seq_q x n_seq_v
     - the scale 1/(sqrt(dk)) to reduce the variance (large values -> small gradients for SoftMax)
     - mask for Autoregressive Decoding (Masked Attention)
+    - mask is parameter because the mask size in inference # training
     '''
     
     if type == "dot":
         dot_product = torch.bmm(q, k.permute(0, 2, 1))/k.shape[-1]**0.5
-        if mask != None:
-            mask_weight = F.softmax(dot_product.masked_fill(mask==0, -999), dim=-1) #DCM NGU 
-        else:
-            mask_weight = F.softmax(dot_product, dim=-1)
+        # if mask != None:
+        #     mask_weight = F.softmax(dot_product.masked_fill(mask==0, -999), dim=-1) #DCM NGU 
+        # else:
+        mask_weight = F.softmax(dot_product, dim=-1)
     return torch.bmm(mask_weight, v), mask_weight
 
 #vocab prepare class
