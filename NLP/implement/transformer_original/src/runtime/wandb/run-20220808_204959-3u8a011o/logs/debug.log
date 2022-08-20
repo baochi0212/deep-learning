@@ -1,0 +1,25 @@
+2022-08-08 20:49:59,164 INFO    MainThread:3382 [wandb_setup.py:_flush():76] Loading settings from /home/xps/.config/wandb/settings
+2022-08-08 20:49:59,165 INFO    MainThread:3382 [wandb_setup.py:_flush():76] Loading settings from /home/xps/projects/deep-learning-/NLP/implement/temp/src/models/wandb/settings
+2022-08-08 20:49:59,165 INFO    MainThread:3382 [wandb_setup.py:_flush():76] Loading settings from environment variables: {'_require_service': 'True'}
+2022-08-08 20:49:59,165 INFO    MainThread:3382 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'NLP/implement/temp/src/models/main.py', 'program': '/home/xps/projects/deep-learning-/NLP/implement/temp/src/models/main.py'}
+2022-08-08 20:49:59,167 INFO    MainThread:3382 [wandb_init.py:_log_setup():428] Logging user logs to /home/xps/projects/deep-learning-/NLP/implement/temp/src/runtime/wandb/run-20220808_204959-3u8a011o/logs/debug.log
+2022-08-08 20:49:59,167 INFO    MainThread:3382 [wandb_init.py:_log_setup():429] Logging internal logs to /home/xps/projects/deep-learning-/NLP/implement/temp/src/runtime/wandb/run-20220808_204959-3u8a011o/logs/debug-internal.log
+2022-08-08 20:49:59,168 INFO    MainThread:3382 [wandb_init.py:init():462] calling init triggers
+2022-08-08 20:49:59,168 INFO    MainThread:3382 [wandb_init.py:init():465] wandb.init called with sweep_config: {}
+config: {}
+2022-08-08 20:49:59,169 INFO    MainThread:3382 [wandb_init.py:init():515] starting backend
+2022-08-08 20:49:59,169 INFO    MainThread:3382 [wandb_init.py:init():519] setting up manager
+2022-08-08 20:49:59,178 INFO    MainThread:3382 [backend.py:_multiprocessing_setup():97] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2022-08-08 20:49:59,182 INFO    MainThread:3382 [wandb_init.py:init():525] backend started and connected
+2022-08-08 20:49:59,187 INFO    MainThread:3382 [wandb_init.py:init():596] updated telemetry
+2022-08-08 20:49:59,220 INFO    MainThread:3382 [wandb_init.py:init():627] communicating run to backend with 30 second timeout
+2022-08-08 20:49:59,951 INFO    MainThread:3382 [wandb_run.py:_on_init():1924] communicating current version
+2022-08-08 20:50:00,131 INFO    MainThread:3382 [wandb_run.py:_on_init():1928] got version response upgrade_message: "wandb version 0.13.1 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2022-08-08 20:50:00,131 INFO    MainThread:3382 [wandb_init.py:init():662] starting run threads in backend
+2022-08-08 20:50:05,144 INFO    MainThread:3382 [wandb_run.py:_console_start():1898] atexit reg
+2022-08-08 20:50:05,145 INFO    MainThread:3382 [wandb_run.py:_redirect():1771] redirect: SettingsConsole.WRAP
+2022-08-08 20:50:05,146 INFO    MainThread:3382 [wandb_run.py:_redirect():1808] Wrapping output streams.
+2022-08-08 20:50:05,147 INFO    MainThread:3382 [wandb_run.py:_redirect():1832] Redirects installed.
+2022-08-08 20:50:05,148 INFO    MainThread:3382 [wandb_init.py:init():688] run started, returning control to user process
+2022-08-08 20:50:13,612 WARNING MsgRouterThr:3382 [router.py:message_loop():76] message_loop has been closed

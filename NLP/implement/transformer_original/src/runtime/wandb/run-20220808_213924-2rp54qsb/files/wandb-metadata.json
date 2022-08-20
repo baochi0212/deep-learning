@@ -1,0 +1,22 @@
+{
+    "os": "Linux-5.10.16.3-microsoft-standard-WSL2-x86_64-with-glibc2.31",
+    "python": "3.9.12",
+    "heartbeatAt": "2022-08-08T14:39:26.069296",
+    "startedAt": "2022-08-08T14:39:24.961077",
+    "docker": null,
+    "cpu_count": 8,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/home/xps/projects/deep-learning-/NLP/implement/temp/src/models/main.py",
+    "codePath": "NLP/implement/temp/src/models/main.py",
+    "git": {
+        "remote": "https://github.com/baochi0212/deep-learning-",
+        "commit": "071d34f784d9c02343a2d68b4ae535ed963bab55"
+    },
+    "email": "chideptraika29@gmail.com",
+    "root": "/home/xps/projects/deep-learning-",
+    "host": "DESKTOP-L55QTJ7",
+    "username": "xps",
+    "executable": "/home/xps/anaconda3/envs/deeplearning/bin/python"
+}
