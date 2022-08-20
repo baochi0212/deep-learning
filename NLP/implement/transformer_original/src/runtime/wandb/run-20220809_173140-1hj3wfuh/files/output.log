@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/xps/projects/deep-learning-/NLP/implement/temp/src/models/main.py", line 101, in <module>
+    trainer = pl.Trainer(accelerator='cpu', devices=0, default_root_dir=ckp_dir, logger=wandb_logger, callbacks=custom_callbacks, max_epochs=3, fast_dev_run=True)
+  File "/home/xps/anaconda3/envs/deeplearning/lib/python3.9/site-packages/pytorch_lightning/utilities/argparse.py", line 345, in insert_env_defaults
+    return fn(self, **kwargs)
+  File "/home/xps/anaconda3/envs/deeplearning/lib/python3.9/site-packages/pytorch_lightning/trainer/trainer.py", line 433, in __init__
+    self._accelerator_connector = AcceleratorConnector(
+  File "/home/xps/anaconda3/envs/deeplearning/lib/python3.9/site-packages/pytorch_lightning/trainer/connectors/accelerator_connector.py", line 200, in __init__
+    self._check_device_config_and_set_final_flags(
+  File "/home/xps/anaconda3/envs/deeplearning/lib/python3.9/site-packages/pytorch_lightning/trainer/connectors/accelerator_connector.py", line 413, in _check_device_config_and_set_final_flags
+    raise MisconfigurationException(
