@@ -223,8 +223,8 @@ class Encoder(nn.Module):
         self.pos_encoding = PE(self.d_model, 0.1)
     def forward(self, x):
         x = self.Embedding(x)
-        x = self.pos_encoding(x)
-        # x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, p_drop=self.p_drop, x=x, d_model=self.d_model)
+        # x = self.pos_encoding(x)
+        x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, x=x, d_model=self.d_model)
         i = 0
         for layer in self.layers:
             x = layer(x)
@@ -254,8 +254,8 @@ class Decoder(nn.Module):
         return [encoder_output, encoder_n_seq, [None]*self.N]
     def forward(self, x, state):
         x = self.Embedding(x)
-        x = self.pos_encoding(x)
-        # x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, p_drop=self.p_drop, x=x, d_model=self.d_model)
+        # x = self.pos_encoding(x)
+        x = PositionalEncoding('direct', scale=10000, device=next(self.parameters()).device, x=x, d_model=self.d_model)
         for layer in self.layers:
             x, state = layer(x, state)
             self._attention_weights['mask_attention'].append(layer.mask_attention.weight)
