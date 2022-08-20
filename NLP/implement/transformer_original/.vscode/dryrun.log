@@ -1,0 +1,21 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/xps/projects/deep-learning-/NLP/implement/temp'
+mkdir data
+mkdir data/external
+mkdir data/interim
+mkdir data/processed
+mkdir data/raw
+echo "finished data"
+mkdir report
+mkdir report/figures
+echo "finished report"
+mkdir src
+mkdir src/dataset
+mkdir src/utils
+mkdir src/models
+mkdir src/runtime
+touch src/visualization.ipynb
+echo "finished src"
+mkdir docs
+make: Leaving directory '/home/xps/projects/deep-learning-/NLP/implement/temp'
+ 
