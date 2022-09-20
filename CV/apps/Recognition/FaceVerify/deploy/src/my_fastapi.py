@@ -31,7 +31,7 @@ FACENET_MODEL_PATH = './models/model.pt'
 mtcnn = MTCNN(keep_all=True, post_process=False)
 #get from config
 num_classes = 4
-class_name = ['jolie', 'john', 'badd', 'tri']
+class_name = ['jolie', 'messi', 'ronaldog', 'tri']
 class_dict = dict([(i, class_name[i]) for i in range(num_classes)])
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 def get_face(image):
