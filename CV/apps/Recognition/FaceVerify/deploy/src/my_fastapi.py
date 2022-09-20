@@ -75,6 +75,6 @@ async def predict_api(file: UploadFile = File(...)):
     logits = facenet(image.unsqueeze(0))
     prob = torch.max(torch.nn.functional.softmax(logits)).item()
     name = class_dict[torch.argmax(logits).item()]
-    if prob < 0.8:
+    if prob < 0.7:
         name = "unknown"
     return {'class': name, 'prob': prob}
