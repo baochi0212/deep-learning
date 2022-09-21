@@ -24,6 +24,10 @@ from io import BytesIO
 from pydantic import BaseModel
 from glob import glob
 import shutil
+import warnings
+from torch.utils.tensorboard import SummaryWriter
+
+warnings.filterwarnings('ignore')
 
 WORKING_PATH = os.environ['dir']
 MODEL_PATH = WORKING_PATH + '/source/models/train_model.pt'
@@ -45,34 +49,46 @@ metrics = {
     'acc': training.accuracy
 }
 def prepare_data():
-    dataset = datasets.ImageFolder(data_dir, transform=transforms.Resize((512, 512)))
+    dataset = datasets.ImageFolder(data_dir)
     dataset.samples = [
         (p, p.replace(data_dir, data_dir + '_cropped'))
             for p, _ in dataset.samples
     ]
-            
+
     loader = DataLoader(
         dataset,
         num_workers=workers,
-        batch_size=2,
-        collate_fn=training.collate_pil
+        batch_size=1,
+        collate_fn = training.collate_pil
     )
 
     for i, (x, y) in enumerate(loader):
         mtcnn(x, save_path=y)
         print('\rBatch {} of {}'.format(i + 1, len(loader)), end='')
     
-def train(model, train_loader, optimizer, scheduler, metrics):
+def train(model, train_loader, val_loader, optimizer, scheduler, metrics):
+    
+    writer = SummaryWriter()
+    writer.iteration, writer.interval = 0, 10
+    for epoch in range(8):
 
-    for epoch in range(epochs):
-
+        print('\nEpoch {}/{}'.format(epoch + 1, epochs))
+        print('-' * 10)
         model.train()
         training.pass_epoch(
             model, loss_fn, train_loader, optimizer, scheduler,
-            batch_metrics=metrics, show_running=True, device=device
+            batch_metrics=metrics, show_running=True, device=device,
+            writer=writer
         )
 
-        model.eval()
+        # model.eval()
+        # training.pass_epoch(
+        #     model, loss_fn, val_loader,
+        #     batch_metrics=metrics, show_running=True, device=device,
+        #     writer=writer
+        # )
+    writer.close()
+
 
 class dbController:
     def __init__(self, num_classes, class_name):
@@ -133,7 +149,7 @@ class dbController:
             batch_size=32,
             sampler=SubsetRandomSampler(val_inds)
         )
-        train(resnet, train_loader, optimizer, scheduler, metrics)
+        train(resnet, train_loader, val_loader, optimizer, scheduler, metrics)
         torch.save(resnet.state_dict(), MODEL_PATH)
         shutil.move(MODEL_PATH, CURRENT_MODEL)
 

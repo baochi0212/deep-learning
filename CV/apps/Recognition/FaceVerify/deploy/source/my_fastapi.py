@@ -67,6 +67,7 @@ try:
         num_classes=num_classes
     ).to(device)
     facenet.load_state_dict(torch.load(MODEL_PATH))
+    facenet.eval()
 except:
     facenet = InceptionResnetV1(
         classify=True,
@@ -74,7 +75,8 @@ except:
         num_classes=num_classes - 1
     ).to(device)
     facenet.load_state_dict(torch.load(MODEL_PATH))
-facenet.eval()
+    facenet.eval()
+
 
 
 
