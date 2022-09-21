@@ -26,8 +26,8 @@ from glob import glob
 import shutil
 
 WORKING_PATH = os.environ['dir']
-MODEL_PATH = WORKING_PATH + '/src/models/train_model.pt'
-CURRENT_MODEL = WORKING_PATH + '/src/models/current_model.pt'
+MODEL_PATH = WORKING_PATH + '/source/models/train_model.pt'
+CURRENT_MODEL = WORKING_PATH + '/source/models/current_model.pt'
 DATABASE_PATH = WORKING_PATH + '/database'
 data_dir = DATABASE_PATH + '/test_images'
 batch_size = 32
