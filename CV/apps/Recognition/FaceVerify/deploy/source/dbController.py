@@ -97,15 +97,18 @@ class dbController:
         self.class_dict = dict([(i, class_name[i]) for i in range(num_classes)])
     def addRegistration(self, files, name, id):
         #get the id
+        overlap = False 
         self.num_classes += 1 
         self.class_name.append(name)
         self.class_dict = dict([(i, self.class_name[i]) for i in range(self.num_classes)])
         #folder for storage
         if not os.path.exists(f'{data_dir}/{name}_{id}'):
             os.mkdir(f'{data_dir}/{name}_{id}')
+            overlap = True
         for i, file in enumerate(files):
             with open(f'{data_dir}/{name}_{id}/{i}.jpg', 'wb') as f:
                 f.write(file.getbuffer())
+        return overlap
 
     def fit(self):
         prepare_data()

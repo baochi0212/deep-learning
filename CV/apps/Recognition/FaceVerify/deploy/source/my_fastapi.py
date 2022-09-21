@@ -3,6 +3,8 @@ from __future__ import division
 from __future__ import print_function
 
 from fastapi import FastAPI, File, UploadFile, Form
+import uvicorn
+import fuckit
 import torchvision.transforms as tf
 import argparse
 import os
@@ -40,7 +42,7 @@ paths = glob(DATABASE_PATH + '/test_images/*')
 num_classes = len(paths)
 print("NUM CLASSES: ", num_classes)
 class_name = [path.split('/')[-1] for path in paths]
-class_dict = dict([(i, class_name[i]) for i in range(num_classes)])
+class_dict = dict([(i, class_name[i]) for i in range(num_classes)]) 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 controller = dbController(num_classes, class_name)
 
@@ -51,31 +53,29 @@ if len(glob(DATABASE_PATH + "*")) < num_classes:
     print("Checking the registration please")
     register_status = False
 def get_face(image):
-  mtcnn = MTCNN(keep_all=True, post_process=False)
-  face = mtcnn(image)[0]
-  image = transforms.Resize((160, 160))((transforms.ToTensor()((Image.fromarray(face.permute(1, 2, 0).numpy().astype(np.uint8))))))
-  image = Image.fromarray(face.permute(1, 2, 0).numpy().astype(np.uint8))
-  return image
-
-
-#Model
-print('Loading feature extraction model')
-try:
+    mtcnn = MTCNN(keep_all=True, post_process=False)
+    face = mtcnn(image)[0]
+    image = transforms.Resize((160, 160))((transforms.ToTensor()((Image.fromarray(face.permute(1, 2, 0).numpy().astype(np.uint8))))))
+    image = Image.fromarray(face.permute(1, 2, 0).numpy().astype(np.uint8))
+    return image
+#module to skip the exception XD
+def callFacenet(num_classes):
     facenet = InceptionResnetV1(
         classify=True,
         pretrained='vggface2',
         num_classes=num_classes
     ).to(device)
     facenet.load_state_dict(torch.load(MODEL_PATH))
-    facenet.eval()
-except:
-    facenet = InceptionResnetV1(
-        classify=True,
-        pretrained='vggface2',
-        num_classes=num_classes - 1
-    ).to(device)
-    facenet.load_state_dict(torch.load(MODEL_PATH))
-    facenet.eval()
+    return facenet
+@fuckit
+def modelLoading():
+    facenet = callFacenet(num_classes)
+    facenet = callFacenet(num_classes-1)
+    facenet = callFacenet(num_classes+1)
+    
+
+    return facenet
+
 
 
 
@@ -88,6 +88,10 @@ def read_imagefile(file) -> Image.Image:
     return image
 @app.post("/predict/")
 async def predict_api(file: UploadFile = File(...)):
+
+    facenet = modelLoading()
+
+    facenet.eval()
     extension = file.filename.split(".")[-1] in ("jpg", "jpeg", "png")
     if not extension:
         return "Image must be jpg or png format!"
@@ -96,9 +100,10 @@ async def predict_api(file: UploadFile = File(...)):
     image = tf.ToTensor()(image)
     logits = facenet(image.unsqueeze(0))
     prob = torch.max(torch.nn.functional.softmax(logits, dim=-1)).item()
-    name = class_dict[torch.argmax(logits).item()]
-    # if prob < 0.7:
-    #     name = "unknown"
+    idx = torch.argmax(logits).item()
+    name = class_dict[idx] if idx < num_classes else "unknown"
+    if prob < 0.5:
+        name = "unknown"
     return {'class': name, 'prob': prob}
 
 @app.post("/register/")
@@ -112,8 +117,12 @@ async def register_api(file1: UploadFile = File(...), file2: UploadFile = File(.
         image = BytesIO(await file.read())
         images.append(image)
     #Label
-    controller.addRegistration(images, name, id)
+    overlap = controller.addRegistration(images, name, id)
     #Retrain
-    controller.fit()
+    if overlap:
+        controller.fit()
 
     return "Successfully registered"
+#if wanna programmatically run
+# if __name__ == "__main__":
+#     uvicorn.run("my_fastapi:app", port=8000, reload=True, access_log=False, reload_dirs=["/home/xps/projects/deep-learning-/CV/apps/Recognition/FaceVerify/deploy/database/test_images"])
