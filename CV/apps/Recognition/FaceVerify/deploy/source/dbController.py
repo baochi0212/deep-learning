@@ -13,7 +13,7 @@ from sklearn.svm import SVC
 import base64
 from facenet_pytorch import MTCNN, InceptionResnetV1, fixed_image_standardization, training
 import torch
-from torch.utils.data import DataLoader, SubsetRandomSampler
+from torch.utils.data import DataLoader, SubsetRandomSampler, Dataset
 from torch import optim
 from torch.optim.lr_scheduler import MultiStepLR
 from torchvision import datasets, transforms
@@ -34,6 +34,7 @@ MODEL_PATH = WORKING_PATH + '/source/models/train_model.pt'
 CURRENT_MODEL = WORKING_PATH + '/source/models/current_model.pt'
 DATABASE_PATH = WORKING_PATH + '/database'
 data_dir = DATABASE_PATH + '/test_images'
+data_cropped = data_dir + '_cropped'
 batch_size = 32
 epochs = 8
 workers = 0 if os.name == 'nt' else 8
@@ -48,10 +49,29 @@ metrics = {
     'fps': training.BatchTimer(),
     'acc': training.accuracy
 }
+
+class CustomDataset(Dataset):
+    def __init__(self, path=data_cropped):
+        super().__init__()
+        self.paths = glob(path + "/*/*")
+        self.num_classes = len(glob(path + "/*"))
+        
+
+    def __getitem__(self, idx):
+        path = self.paths[idx]
+        data = Image.open(path)
+        label = int(path.split('/')[-1][0])
+        return data, label
+
+    def __len__(self):
+        return len(self.paths)
+        
+
+
 def prepare_data():
     dataset = datasets.ImageFolder(data_dir)
     dataset.samples = [
-        (p, p.replace(data_dir, data_dir + '_cropped'))
+        (p, p.replace(data_dir, data_cropped))
             for p, _ in dataset.samples
     ]
 
@@ -81,12 +101,12 @@ def train(model, train_loader, val_loader, optimizer, scheduler, metrics):
             writer=writer
         )
 
-        # model.eval()
-        # training.pass_epoch(
-        #     model, loss_fn, val_loader,
-        #     batch_metrics=metrics, show_running=True, device=device,
-        #     writer=writer
-        # )
+        model.eval()
+        training.pass_epoch(
+            model, loss_fn, val_loader,
+            batch_metrics=metrics, show_running=True, device=device,
+            writer=writer
+        )
     writer.close()
 
 
@@ -106,7 +126,7 @@ class dbController:
             os.mkdir(f'{data_dir}/{name}_{id}')
             overlap = True
         for i, file in enumerate(files):
-            with open(f'{data_dir}/{name}_{id}/{i}.jpg', 'wb') as f:
+            with open(f'{data_dir}/{name}_{id}/{i+1}.jpg', 'wb') as f:
                 f.write(file.getbuffer())
         return overlap
 
@@ -117,7 +137,8 @@ class dbController:
             transforms.ToTensor(),
             fixed_image_standardization
         ])
-        dataset = datasets.ImageFolder(data_dir + '_cropped', transform=trans)
+        dataset = datasets.ImageFolder(data_cropped, transform=trans)
+        # dataset = CustomDataset(data_cropped)
         img_inds = np.arange(len(dataset))
         np.random.shuffle(img_inds)
         train_inds = img_inds[:int(0.8 * len(img_inds))]
@@ -146,6 +167,7 @@ class dbController:
             batch_size=32,
             sampler=SubsetRandomSampler(train_inds)
         )
+
         val_loader = DataLoader(
             dataset,
             num_workers=workers,
@@ -155,7 +177,6 @@ class dbController:
         train(resnet, train_loader, val_loader, optimizer, scheduler, metrics)
         torch.save(resnet.state_dict(), MODEL_PATH)
         shutil.move(MODEL_PATH, CURRENT_MODEL)
-
 
 if __name__ == '__main__':
     paths = glob(DATABASE_PATH + '/test_images/*')
