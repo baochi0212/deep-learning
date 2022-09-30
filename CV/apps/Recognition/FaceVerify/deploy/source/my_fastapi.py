@@ -36,7 +36,8 @@ MODEL_PATH = WORKING_PATH + '/source/models/current_model.pt'
 DATABASE_PATH = WORKING_PATH + '/database'
 data_dir = DATABASE_PATH + '/test_images'
 data_cropped = data_dir + '_cropped'
-
+bins_dir = DATABASE_PATH + '/bins'
+bin_list = [os.path.basename(i)[:-4] for i in glob(bins_dir + '/*.txt')]
 
 
 #init Config for trained models
@@ -49,10 +50,11 @@ datasets = datasets.ImageFolder(data_cropped)
 class_dict = dict((value, key) for key, value in datasets.class_to_idx.items())
 #database QC
 controller = dbController(num_classes, class_name)
-register_status = True
-if len(glob(DATABASE_PATH + "*")) < num_classes:
-    print("Checking the registration please")
-    register_status = False
+
+# register_status = True
+# if len(glob(DATABASE_PATH + "*")) < num_classes:
+#     print("Checking the registration please")
+#     register_status = False
 
 
 def get_face(image):
@@ -107,8 +109,11 @@ async def predict_api(file: UploadFile = File(...), id: UploadFile = Form(...)):
     print("logits", logits)
     print("class name", class_name)
     name = class_dict[idx] if idx < num_classes else "unknown"
+    if name in bin_list:
+        name = "unknown"
     # if prob < 0.5:
     #     name = "unknown"
+
     return {'class': name, 'prob': prob}
 
 @app.post("/register/")
@@ -126,8 +131,20 @@ async def register_api(file1: UploadFile = File(...), file2: UploadFile = File(.
     #Retrain
     if overlap:
         controller.fit()
+        return "Successfully registered"
+    else:
+        return "Existed"
+    
 
-    return "Successfully registered"
+@app.post("/delete/")
+async def delete_api(id: str = Form(...), name: str = Form(...)):
+    exist = controller.deleteRegister(name, id)
+    if not exist:
+        # controller.fit() for retrain if remove members
+        return "Sucessfully deleted"
+    else:
+        return "Non-existed"
+
 #if wanna programmatically run
 # if __name__ == "__main__":
 #     uvicorn.run("my_fastapi:app", port=8000, reload=True, access_log=False, reload_dirs=["/home/xps/projects/deep-learning-/CV/apps/Recognition/FaceVerify/deploy/database/test_images"])

@@ -35,6 +35,7 @@ CURRENT_MODEL = WORKING_PATH + '/source/models/current_model.pt'
 DATABASE_PATH = WORKING_PATH + '/database'
 data_dir = DATABASE_PATH + '/test_images'
 data_cropped = data_dir + '_cropped'
+bins_dir = DATABASE_PATH + '/bins'
 batch_size = 32
 epochs = 8
 workers = 0 if os.name == 'nt' else 8
@@ -129,7 +130,28 @@ class dbController:
             with open(f'{data_dir}/{name}_{id}/{i+1}.jpg', 'wb') as f:
                 f.write(file.getbuffer())
         return overlap
+    def deleteRegister(self, name, id):
+        '''
+        rm -rf in test-images and mv to bins
+        '''
+        exist = True
+        if os.path.exists(f'{data_dir}/{name}_{id}'):
+            exist = False
+            idx = None
+            os.system(f"rm -rf {data_dir}/{name}_{id}")
+            # os.system(f"rm -rf {data_cropped}/{name}_{id}")
+            os.system(f"touch {bins_dir}/{name}_{id}.txt")
+            # os.system(f"rm {bins_dir}/{name}_{id}.txt") #if don't wanna save the del list
+            self.num_classes -= 1
+            #index
+            for i in range(len(self.class_name)):
+                if self.class_name[i] == name + '_' + id: 
+                    idx = i
+                    break
+            self.class_name.pop(idx)
+            self.class_dict = dict([(i, self.class_name[i]) for i in range(self.num_classes)])
 
+        return exist
     def fit(self):
         prepare_data()
         trans = transforms.Compose([
@@ -184,4 +206,7 @@ if __name__ == '__main__':
     print("NUM CLASSES: ", num_classes)
     class_name = [path.split('/')[-1] for path in paths]
     controller = dbController(num_classes, class_name)
-    controller.fit()
+    # controller.fit()
+    controller.deleteRegister(name='neymar', id='2002')
+    print("deleted", controller.num_classes)
+    print("class", controller.class_name)
