@@ -38,10 +38,10 @@ data_dir = DATABASE_PATH + '/test_images'
 data_cropped = data_dir + '_cropped'
 bins_dir = DATABASE_PATH + '/bins'
 bin_list = [os.path.basename(i)[:-4] for i in glob(bins_dir + '/*.txt')]
-
+print("BIN", bin_list)
 
 #init Config for trained models
-paths = glob(DATABASE_PATH + '/test_images/*')
+paths = glob(DATABASE_PATH + '/test_images_cropped/*')
 num_classes = len(paths)
 print("NUM CLASSES: ", num_classes)
 class_name = [path.split('/')[-1] for path in paths]
@@ -126,6 +126,9 @@ async def register_api(file1: UploadFile = File(...), file2: UploadFile = File(.
             return "Image must be jpg or png format!"
         image = BytesIO(await file.read())
         images.append(image)
+    #remove the bins
+    for filename in bin_list:
+        controller.deleteBins(filename)
     #Label
     overlap = controller.addRegistration(images, name, id)
     #Retrain

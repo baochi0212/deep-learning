@@ -139,9 +139,7 @@ class dbController:
             exist = False
             idx = None
             os.system(f"rm -rf {data_dir}/{name}_{id}")
-            # os.system(f"rm -rf {data_cropped}/{name}_{id}")
             os.system(f"touch {bins_dir}/{name}_{id}.txt")
-            # os.system(f"rm {bins_dir}/{name}_{id}.txt") #if don't wanna save the del list
             self.num_classes -= 1
             #index
             for i in range(len(self.class_name)):
@@ -152,6 +150,9 @@ class dbController:
             self.class_dict = dict([(i, self.class_name[i]) for i in range(self.num_classes)])
 
         return exist
+    def deleteBins(self, filename):
+        os.system(f"rm -rf {data_cropped}/{filename}")
+        os.system(f"rm -rf {bins_dir}/{filename}.txt")
     def fit(self):
         prepare_data()
         trans = transforms.Compose([
